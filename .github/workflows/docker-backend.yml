@@ -23,4 +23,4 @@ jobs:
   # 4️⃣ Push to Docker Hub
     - name: Push Docker image
   run: |
-    docker push RoiVishi/ii-backend:latest
+    docker push roivishi/ii-backend:latest
