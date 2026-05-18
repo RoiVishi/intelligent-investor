@@ -10,6 +10,30 @@ const bucketLabels = [
   ['guiltFreeSpending', 'Guilt-Free Spending', '27.5% midpoint', 'spending'],
 ];
 
+const scenarios = [
+  ['Conservative', 0.08, 0.05],
+  ['Balanced', 0.10, 0.07],
+  ['Aggressive', 0.15, 0.09],
+];
+
+function projectMonthlyInvestment(monthlyInvestment, annualReturn, years) {
+  return Array.from({ length: clampYears(years) }, (_, index) => ({
+    year: index + 1,
+    value: Number((monthlyInvestment * Math.pow(1 + annualReturn, index + 1)).toFixed(2)),
+  }));
+}
+
+function monthsToGoal(monthlyAmount, target) {
+  const safeMonthly = Number(monthlyAmount) || 0;
+  const safeTarget = Number(target) || 0;
+
+  if (safeMonthly <= 0 || safeTarget <= 0) {
+    return null;
+  }
+
+  return Math.ceil(safeTarget / safeMonthly);
+}
+
 function ProjectionChart({ projection }) {
   const width = 720;
   const height = 300;
@@ -85,6 +109,7 @@ export default function App() {
     bankNet: 6800,
     years: 15,
   });
+  const [goalTarget, setGoalTarget] = useState(100000);
   const [result, setResult] = useState(() => calculateClientSide(10000, 6800, 15));
   const [message, setMessage] = useState('');
   const [apiStatus, setApiStatus] = useState('Backend: checking...');
@@ -97,6 +122,32 @@ export default function App() {
   const endingProjectionValue = displayResult.wealthProjection.at(-1)?.value || 0;
   const yearlyInvestment = displayResult.activeInvestments * 12;
   const statusClass = apiStatus.includes('connected') ? 'status connected' : 'status';
+  const goalMonths = monthsToGoal(displayResult.savingsGoals, goalTarget);
+  const fixedCostRatio = form.bankNet > 0 ? displayResult.fixedCosts / form.bankNet : 0;
+  const investmentRatio = form.bankNet > 0 ? displayResult.activeInvestments / form.bankNet : 0;
+  const scenarioResults = scenarios.map(([label, investmentRate, annualReturn]) => {
+    const monthlyInvestment = form.bankNet * investmentRate;
+    const projection = projectMonthlyInvestment(monthlyInvestment, annualReturn, form.years);
+
+    return {
+      label,
+      annualReturn,
+      investmentRate,
+      monthlyInvestment,
+      endingValue: projection.at(-1)?.value || 0,
+    };
+  });
+  const insights = [
+    fixedCostRatio > 0.60
+      ? ['warning', 'Fixed costs are above 60% of bank net. This can reduce flexibility.']
+      : ['good', 'Fixed costs are within a healthy planning range.'],
+    investmentRatio < 0.10
+      ? ['warning', 'Monthly investing is below the 10% baseline.']
+      : ['good', 'Monthly investing meets the 10% baseline.'],
+    goalMonths
+      ? ['good', `At the current savings rate, the goal can be reached in about ${goalMonths} months.`]
+      : ['warning', 'Add a savings goal to estimate the timeline.'],
+  ];
 
   useEffect(() => {
     setResult(liveResult);
@@ -155,6 +206,10 @@ export default function App() {
     }
   }
 
+  function exportPdf() {
+    window.print();
+  }
+
   return (
     <main>
       <header className="app-header">
@@ -207,9 +262,20 @@ export default function App() {
             onChange={updateField}
           />
 
+          <label htmlFor="goalTarget">Savings goal</label>
+          <input
+            id="goalTarget"
+            name="goalTarget"
+            type="number"
+            min="1"
+            value={goalTarget}
+            onChange={(event) => setGoalTarget(Number(event.target.value))}
+          />
+
           <button type="submit">Calculate</button>
           <div className="actions">
             <button type="button" className="secondary" onClick={saveProfile}>Save</button>
+            <button type="button" className="secondary" onClick={exportPdf}>Export PDF</button>
           </div>
           <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
         </form>
@@ -245,9 +311,57 @@ export default function App() {
               </article>
             ))}
           </div>
+
+          <div className="feature-grid">
+            <section className="feature-card goal-card">
+              <div className="section-title compact">
+                <span>03</span>
+                <h2>Savings goal</h2>
+              </div>
+              <strong>{formatCurrency(goalTarget)}</strong>
+              <p>
+                {goalMonths
+                  ? `${goalMonths} months at ${formatCurrency(displayResult.savingsGoals)} per month.`
+                  : 'Set a goal to calculate the timeline.'}
+              </p>
+            </section>
+
+            <section className="feature-card insights-card">
+              <div className="section-title compact">
+                <span>04</span>
+                <h2>Smart insights</h2>
+              </div>
+              <div className="insight-list">
+                {insights.map(([tone, text]) => (
+                  <p className={`insight ${tone}`} key={text}>{text}</p>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className="scenario-panel">
+            <div className="section-title compact">
+              <span>05</span>
+              <h2>Scenario comparison</h2>
+            </div>
+            <div className="scenario-grid">
+              {scenarioResults.map((scenario) => (
+                <article className="scenario" key={scenario.label}>
+                  <strong>{scenario.label}</strong>
+                  <span>{formatCurrency(scenario.endingValue)}</span>
+                  <p>
+                    {(scenario.investmentRate * 100).toFixed(0)}% invested,
+                    {' '}
+                    {(scenario.annualReturn * 100).toFixed(0)}% return
+                  </p>
+                </article>
+              ))}
+            </div>
+          </section>
+
           <div className="chart-panel">
             <div className="section-title">
-              <span>02</span>
+              <span>06</span>
               <h2>{clampYears(form.years)}-year investment projection</h2>
             </div>
             <div className="chart-frame">
