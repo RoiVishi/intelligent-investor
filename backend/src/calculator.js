@@ -17,24 +17,34 @@ function calculateFixedCosts(bankNet, rate = DEFAULT_FIXED_COSTS_RATE) {
   return roundMoney(Number(bankNet) * rate);
 }
 
-function calculateSavingsGoals(bankNet) {
-  return roundMoney(Number(bankNet) * SAVINGS_GOALS_RATE);
+function calculateSavingsGoals(bankNet, rate = SAVINGS_GOALS_RATE) {
+  return roundMoney(Number(bankNet) * rate);
 }
 
-function calculateActiveInvestments(bankNet) {
-  return roundMoney(Number(bankNet) * ACTIVE_INVESTMENTS_RATE);
+function calculateActiveInvestments(bankNet, rate = ACTIVE_INVESTMENTS_RATE) {
+  return roundMoney(Number(bankNet) * rate);
 }
 
 function calculateGuiltFreeSpending(bankNet, rate = DEFAULT_GUILT_FREE_RATE) {
   return roundMoney(Number(bankNet) * rate);
 }
 
-function calculateBuckets(bankNet) {
+function normalizeRates(rates = {}) {
   return {
-    fixedCosts: calculateFixedCosts(bankNet),
-    savingsGoals: calculateSavingsGoals(bankNet),
-    activeInvestments: calculateActiveInvestments(bankNet),
-    guiltFreeSpending: calculateGuiltFreeSpending(bankNet),
+    fixedCosts: Number(rates.fixedCosts ?? DEFAULT_FIXED_COSTS_RATE),
+    savingsGoals: Number(rates.savingsGoals ?? SAVINGS_GOALS_RATE),
+    activeInvestments: Number(rates.activeInvestments ?? ACTIVE_INVESTMENTS_RATE),
+    guiltFreeSpending: Number(rates.guiltFreeSpending ?? DEFAULT_GUILT_FREE_RATE),
+  };
+}
+
+function calculateBuckets(bankNet, rates = {}) {
+  const resolvedRates = normalizeRates(rates);
+  return {
+    fixedCosts: calculateFixedCosts(bankNet, resolvedRates.fixedCosts),
+    savingsGoals: calculateSavingsGoals(bankNet, resolvedRates.savingsGoals),
+    activeInvestments: calculateActiveInvestments(bankNet, resolvedRates.activeInvestments),
+    guiltFreeSpending: calculateGuiltFreeSpending(bankNet, resolvedRates.guiltFreeSpending),
   };
 }
 
@@ -58,12 +68,12 @@ function calculateWealthProjection(investment, years = DEFAULT_YEARS) {
   });
 }
 
-function calculate(grossSalary, bankNet = null, years = DEFAULT_YEARS) {
+function calculate(grossSalary, bankNet = null, years = DEFAULT_YEARS, rates = {}) {
   const resolvedGrossSalary = Number(grossSalary);
   const resolvedBankNet = bankNet === null || bankNet === undefined
     ? estimateBankNet(resolvedGrossSalary)
     : roundMoney(Number(bankNet));
-  const buckets = calculateBuckets(resolvedBankNet);
+  const buckets = calculateBuckets(resolvedBankNet, rates);
   const wealthProjection = calculateWealthProjection(
     buckets.activeInvestments,
     years,

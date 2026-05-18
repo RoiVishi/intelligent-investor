@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { calculateClientSide, clampYears, formatCurrency } from './calculations';
+import { DEFAULT_ALLOCATION, calculateClientSide, clampYears, formatCurrency } from './calculations';
 
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3001';
 
 const bucketLabels = [
-  ['fixedCosts', 'Fixed Costs', '55% midpoint', 'costs'],
-  ['savingsGoals', 'Savings Goals', '10%', 'savings'],
-  ['activeInvestments', 'Active Investments', '10%', 'investments'],
-  ['guiltFreeSpending', 'Guilt-Free Spending', '27.5% midpoint', 'spending'],
+  ['fixedCosts', 'Fixed Costs', 'costs'],
+  ['savingsGoals', 'Savings Goals', 'savings'],
+  ['activeInvestments', 'Active Investments', 'investments'],
+  ['guiltFreeSpending', 'Guilt-Free Spending', 'spending'],
 ];
 
 const scenarios = [
@@ -39,12 +39,13 @@ function parsePositiveField(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function validateForm(form, goalTarget) {
+function validateForm(form, goalTarget, allocation) {
   const errors = [];
   const grossSalary = parsePositiveField(form.grossSalary);
   const bankNet = parsePositiveField(form.bankNet);
   const years = Number(form.years);
   const goal = parsePositiveField(goalTarget);
+  const allocationTotal = Object.values(allocation).reduce((sum, value) => sum + parsePositiveField(value), 0);
 
   if (!form.name.trim()) {
     errors.push('Name is required.');
@@ -76,6 +77,21 @@ function validateForm(form, goalTarget) {
 
   if (goal > 100000000) {
     errors.push('Savings goal is too high for this planner.');
+  }
+
+  Object.entries(allocation).forEach(([key, value]) => {
+    const percent = parsePositiveField(value);
+    if (percent < 0 || percent > 100) {
+      errors.push(`${key} percentage must be between 0 and 100.`);
+    }
+  });
+
+  if (allocationTotal > 100) {
+    errors.push('Allocation percentages cannot add up to more than 100%.');
+  }
+
+  if (parsePositiveField(allocation.activeInvestments) <= 0) {
+    errors.push('Active investments percentage must be greater than 0.');
   }
 
   return errors;
@@ -157,20 +173,22 @@ export default function App() {
     years: 15,
   });
   const [goalTarget, setGoalTarget] = useState(100000);
-  const [result, setResult] = useState(() => calculateClientSide(10000, 6800, 15));
+  const [allocation, setAllocation] = useState(DEFAULT_ALLOCATION);
+  const [result, setResult] = useState(() => calculateClientSide(10000, 6800, 15, DEFAULT_ALLOCATION));
   const [message, setMessage] = useState('');
   const [apiStatus, setApiStatus] = useState('Backend: checking...');
 
   const liveResult = useMemo(
-    () => calculateClientSide(form.grossSalary, form.bankNet, form.years),
-    [form.grossSalary, form.bankNet, form.years],
+    () => calculateClientSide(form.grossSalary, form.bankNet, form.years, allocation),
+    [form.grossSalary, form.bankNet, form.years, allocation],
   );
   const displayResult = result || liveResult;
   const endingProjectionValue = displayResult.wealthProjection.at(-1)?.value || 0;
   const yearlyInvestment = displayResult.activeInvestments * 12;
   const statusClass = apiStatus.includes('connected') ? 'status connected' : 'status';
   const goalMonths = monthsToGoal(displayResult.savingsGoals, goalTarget);
-  const validationErrors = validateForm(form, goalTarget);
+  const allocationTotal = Object.values(allocation).reduce((sum, value) => sum + parsePositiveField(value), 0);
+  const validationErrors = validateForm(form, goalTarget, allocation);
   const hasValidationErrors = validationErrors.length > 0;
   const grossSalary = parsePositiveField(form.grossSalary);
   const bankNet = parsePositiveField(form.bankNet);
@@ -224,6 +242,22 @@ export default function App() {
     }));
   }
 
+  function updateAllocation(event) {
+    const { name, value } = event.target;
+    setMessage('');
+    setAllocation((current) => ({
+      ...current,
+      [name]: value === '' ? '' : Number(value),
+    }));
+  }
+
+  function requestPayload() {
+    return {
+      ...form,
+      allocation,
+    };
+  }
+
   async function postJson(path, payload) {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
@@ -248,7 +282,7 @@ export default function App() {
     }
 
     try {
-      const data = await postJson('/calculate', form);
+      const data = await postJson('/calculate', requestPayload());
       setResult(data);
       setMessage('');
     } catch (err) {
@@ -264,7 +298,7 @@ export default function App() {
     }
 
     try {
-      const data = await postJson('/calculate/profiles', form);
+      const data = await postJson('/calculate/profiles', requestPayload());
       setResult(data.calculation);
       setMessage('Profile saved.');
     } catch (err) {
@@ -345,6 +379,28 @@ export default function App() {
             onChange={(event) => setGoalTarget(event.target.value === '' ? '' : Number(event.target.value))}
           />
 
+          <div className="allocation-controls">
+            <div className="allocation-header">
+              <h3>Bucket percentages</h3>
+              <strong>{allocationTotal}%</strong>
+            </div>
+            {bucketLabels.map(([key, label]) => (
+              <label className="percent-row" htmlFor={`${key}Percent`} key={key}>
+                <span>{label}</span>
+                <input
+                  id={`${key}Percent`}
+                  name={key}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={allocation[key]}
+                  onChange={updateAllocation}
+                />
+              </label>
+            ))}
+          </div>
+
           <button type="submit" disabled={hasValidationErrors}>Calculate</button>
           <div className="actions">
             <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>Save</button>
@@ -381,11 +437,11 @@ export default function App() {
           </div>
 
           <div className="buckets" data-testid="bucket-grid">
-            {bucketLabels.map(([key, label, note, tone]) => (
+            {bucketLabels.map(([key, label, tone]) => (
               <article className={`bucket ${tone}`} key={key}>
                 <div className="bucket-top">
                   <strong>{label}</strong>
-                  <small>{note}</small>
+                  <small>{parsePositiveField(allocation[key])}%</small>
                 </div>
                 <span data-testid={key}>{formatCurrency(displayResult[key])}</span>
               </article>

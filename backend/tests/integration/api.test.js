@@ -49,6 +49,48 @@ describe('API integration', () => {
     expect(response.body.wealthProjection).toHaveLength(3);
   });
 
+  test('POST /calculate accepts custom allocation percentages', async () => {
+    const response = await request(app)
+      .post('/calculate')
+      .send({
+        grossSalary: 10000,
+        bankNet: 7000,
+        years: 1,
+        allocation: {
+          fixedCosts: 50,
+          savingsGoals: 15,
+          activeInvestments: 20,
+          guiltFreeSpending: 15,
+        },
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.fixedCosts).toBe(3500);
+    expect(response.body.savingsGoals).toBe(1050);
+    expect(response.body.activeInvestments).toBe(1400);
+    expect(response.body.guiltFreeSpending).toBe(1050);
+    expect(response.body.wealthProjection[0].value).toBe(1498);
+  });
+
+  test('POST /calculate rejects allocation percentages above 100 total', async () => {
+    const response = await request(app)
+      .post('/calculate')
+      .send({
+        grossSalary: 10000,
+        bankNet: 7000,
+        years: 1,
+        allocation: {
+          fixedCosts: 80,
+          savingsGoals: 20,
+          activeInvestments: 10,
+          guiltFreeSpending: 5,
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('allocation percentages cannot add up to more than 100');
+  });
+
   test('POST /calculate validates salary input', async () => {
     const response = await request(app)
       .post('/calculate')

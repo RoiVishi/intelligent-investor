@@ -52,6 +52,20 @@ describe('calculateBuckets', () => {
             guiltFreeSpending: 2750,
         });
     });
+
+    test('accepts custom bucket rates', () => {
+        expect(calculateBuckets(10000, {
+            fixedCosts: 0.50,
+            savingsGoals: 0.15,
+            activeInvestments: 0.20,
+            guiltFreeSpending: 0.15,
+        })).toEqual({
+            fixedCosts: 5000,
+            savingsGoals: 1500,
+            activeInvestments: 2000,
+            guiltFreeSpending: 1500,
+        });
+    });
 });
 
 describe('calculateWealthProjection', () => {
@@ -91,5 +105,11 @@ describe('calculate (master)', () => {
 
     test('clamps years < 1 to 1', () => {
         expect(calculate(10000, null, 0).wealthProjection).toHaveLength(1);
+    });
+
+    test('uses custom active investment rate for projection', () => {
+        const result = calculate(10000, 5000, 1, { activeInvestments: 0.20 });
+        expect(result.activeInvestments).toBe(1000);
+        expect(result.wealthProjection[0].value).toBe(1070);
     });
 });

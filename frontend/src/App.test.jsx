@@ -19,7 +19,18 @@ describe('App', () => {
     expect(screen.getByTestId('fixedCosts')).toHaveTextContent('₪3,850');
     expect(screen.getByTestId('savingsGoals')).toHaveTextContent('₪700');
     expect(screen.getByTestId('activeInvestments')).toHaveTextContent('₪700');
-    expect(screen.getByTestId('guiltFreeSpending')).toHaveTextContent('₪1,925');
+    expect(screen.getByTestId('guiltFreeSpending')).toHaveTextContent('₪1,750');
+  });
+
+  test('changing bucket percentages updates the displayed amounts', () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/bank net/i), { target: { value: '7000' } });
+    fireEvent.change(screen.getByLabelText(/fixed costs/i), { target: { value: '50' } });
+    fireEvent.change(screen.getByLabelText(/guilt-free spending/i), { target: { value: '30' } });
+
+    expect(screen.getByTestId('fixedCosts')).toHaveTextContent('₪3,500');
+    expect(screen.getByTestId('guiltFreeSpending')).toHaveTextContent('₪2,100');
   });
 
   test('shows validation when bank net is higher than gross salary', () => {

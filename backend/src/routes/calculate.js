@@ -22,6 +22,35 @@ function parseYears(value) {
   return { value: parsed };
 }
 
+function parseAllocation(allocation) {
+  if (allocation === undefined || allocation === null) {
+    return { value: {} };
+  }
+
+  const keys = ['fixedCosts', 'savingsGoals', 'activeInvestments', 'guiltFreeSpending'];
+  const rates = {};
+  let totalPercent = 0;
+
+  for (const key of keys) {
+    const parsed = Number(allocation[key]);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      return { error: `${key} percentage must be between 0 and 100` };
+    }
+    rates[key] = parsed / 100;
+    totalPercent += parsed;
+  }
+
+  if (totalPercent > 100) {
+    return { error: 'allocation percentages cannot add up to more than 100' };
+  }
+
+  if (rates.activeInvestments <= 0) {
+    return { error: 'activeInvestments percentage must be greater than 0' };
+  }
+
+  return { value: rates };
+}
+
 function validateSalaryRelationship(grossSalary, bankNet) {
   if (bankNet !== null && bankNet !== undefined && bankNet > grossSalary) {
     return { error: 'bankNet cannot be higher than grossSalary' };
@@ -68,7 +97,7 @@ function mapProfile(row) {
 }
 
 router.post('/', async (req, res) => {
-  const { grossSalary, bankNet, years } = req.body;
+  const { grossSalary, bankNet, years, allocation } = req.body;
   const grossResult = parsePositiveNumber(grossSalary, 'grossSalary');
   if (grossResult.error) {
     return res.status(400).json({ error: grossResult.error });
@@ -88,17 +117,22 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: yearsResult.error });
   }
 
+  const allocationResult = parseAllocation(allocation);
+  if (allocationResult.error) {
+    return res.status(400).json({ error: allocationResult.error });
+  }
+
   const salaryResult = validateSalaryRelationship(grossResult.value, bankNetValue);
   if (salaryResult.error) {
     return res.status(400).json({ error: salaryResult.error });
   }
 
-  const result = calculate(grossResult.value, bankNetValue, yearsResult.value);
+  const result = calculate(grossResult.value, bankNetValue, yearsResult.value, allocationResult.value);
   return res.status(200).json(result);
 });
 
 router.post('/profiles', async (req, res) => {
-  const { name, grossSalary, bankNet, years } = req.body;
+  const { name, grossSalary, bankNet, years, allocation } = req.body;
   const trimmedName = typeof name === 'string' ? name.trim() : '';
 
   if (!trimmedName) {
@@ -120,12 +154,17 @@ router.post('/profiles', async (req, res) => {
     return res.status(400).json({ error: yearsResult.error });
   }
 
+  const allocationResult = parseAllocation(allocation);
+  if (allocationResult.error) {
+    return res.status(400).json({ error: allocationResult.error });
+  }
+
   const salaryResult = validateSalaryRelationship(grossResult.value, bankNetResult.value);
   if (salaryResult.error) {
     return res.status(400).json({ error: salaryResult.error });
   }
 
-  const plan = calculate(grossResult.value, bankNetResult.value, yearsResult.value);
+  const plan = calculate(grossResult.value, bankNetResult.value, yearsResult.value, allocationResult.value);
 
   try {
     const profileResult = await pool.query(
