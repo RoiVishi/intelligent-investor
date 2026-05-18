@@ -385,19 +385,24 @@ export default function App() {
               <strong>{allocationTotal}%</strong>
             </div>
             {bucketLabels.map(([key, label]) => (
-              <label className="percent-row" htmlFor={`${key}Percent`} key={key}>
-                <span>{label}</span>
+              <div className="slider-row" key={key}>
+                <label htmlFor={`${key}Percent`}>
+                  <span>{label}</span>
+                  <strong>{allocation[key]}%</strong>
+                </label>
                 <input
                   id={`${key}Percent`}
+                  aria-label={`${label} percentage`}
                   name={key}
-                  type="number"
+                  type="range"
                   min="0"
                   max="100"
                   step="1"
                   value={allocation[key]}
                   onChange={updateAllocation}
+                  style={{ '--value': `${allocation[key]}%` }}
                 />
-              </label>
+              </div>
             ))}
           </div>
 
