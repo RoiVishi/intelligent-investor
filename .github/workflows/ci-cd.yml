@@ -39,7 +39,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
 
       - name: Install backend dependencies
         working-directory: backend
@@ -48,6 +50,10 @@ jobs:
       - name: Run backend unit and integration tests
         working-directory: backend
         run: npm test
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
 
       - name: Run frontend component test
         working-directory: frontend
@@ -106,7 +112,7 @@ jobs:
 
       - name: Install frontend E2E dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Start application stack
         run: docker compose up -d --build

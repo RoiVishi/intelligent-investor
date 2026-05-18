@@ -29,6 +29,7 @@ The Intelligent Investor replaces detailed budgeting with four clear buckets bas
 - `backend/src/calculator.js` contains pure calculation logic.
 - `backend/src/routes/calculate.js` handles validation, save, and load-by-id routes.
 - `backend/src/routes/health.js` checks the database before returning HTTP 200.
+- `frontend/src/App.jsx` is the React/Vite UI used for the form, bucket cards, and projection chart.
 
 ## 4. Database
 
@@ -42,7 +43,7 @@ Data persists through the named Docker volume `intelligent-investor_investor_pos
 ## 5. DevOps Flow
 
 - `docker compose up -d --build` starts the full development stack.
-- GitHub Actions runs tests, builds Docker images, runs Cypress, and deploys staging on the `stage` branch.
+- GitHub Actions runs tests, builds Docker images, runs Cypress, and verifies staging on the `stage` branch.
 - `scripts/deploy-staging.sh` and `scripts/deploy-production.sh` are repeatable deployment helpers.
 
 ## 6. Q&A Notes
