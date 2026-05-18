@@ -1,6 +1,6 @@
 # ── Layer 1: Base Image ─────────────────────────────────
-# node:18-alpine = Node.js 18 on Alpine Linux (~5 MB vs ~900 MB for full Debian)
-FROM node:18-alpine
+# node:20-alpine matches the CI runtime.
+FROM node:20-alpine
 # ── Layer 2: Security — create a non-root user ──────────
 # Running as root inside a container is a security risk.
 # We create a dedicated user 'appuser' and will switch to it later.

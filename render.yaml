@@ -39,5 +39,5 @@ services:
     name: intelligent-investor-web
     runtime: static
     rootDir: frontend
-    buildCommand: echo "window.API_BASE_URL = 'https://intelligent-investor-api.onrender.com';" > config.js
-    staticPublishPath: .
+    buildCommand: npm install && npm run build && echo "window.API_BASE_URL = 'https://intelligent-investor-api.onrender.com';" > dist/config.js
+    staticPublishPath: dist

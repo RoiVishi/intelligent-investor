@@ -5,7 +5,7 @@ Final assignment for Introduction to DevOps. The app calculates Common Sense Spe
 ## Architecture
 
 ```text
-Browser / Vanilla JavaScript + SVG chart
+Browser / React + Vite + SVG chart
         |
         | HTTP
         v
@@ -18,7 +18,7 @@ PostgreSQL
 
 Project structure:
 
-- `frontend/` - browser UI served by Nginx in Docker Compose.
+- `frontend/` - React/Vite browser UI served by Nginx in Docker Compose.
 - `backend/src/calculator.js` - isolated calculation module.
 - `backend/src/routes/` - REST endpoints.
 - `backend/db/init.sql` - relational schema for `financial_profiles` and `spending_plans`.
@@ -108,7 +108,7 @@ cd backend
 npm test
 ```
 
-Frontend component calculation test:
+Frontend React DOM test:
 
 ```bash
 cd frontend
@@ -129,10 +129,10 @@ The GitHub Actions workflow runs on pushes and pull requests to `dev`, `stage`, 
 
 Pipeline stages:
 
-1. `Test backend and frontend` - installs dependencies, runs unit and integration tests, and runs the frontend test.
+1. `Test backend and frontend` - installs dependencies, runs unit/integration tests, and runs the React DOM frontend test.
 2. `Build Docker images` - builds the backend Docker image and validates Docker Compose.
 3. `Run end-to-end smoke test` - starts the full stack and runs Cypress.
-4. `Deploy to staging` - runs on merges to `stage`, starts the Compose stack, and verifies `GET /health` returns HTTP 200.
+4. `Deploy to staging` - runs on merges to `stage`, starts the Compose stack in CI as a repeatable staging verification, and verifies `GET /health` returns HTTP 200.
 5. `Publish backend image to Docker Hub` - runs on pushes to `main`, builds the backend image, and pushes `latest` plus the commit SHA tag.
 6. `Verify production deployment` - runs on pushes to `main` after Docker publish and verifies the Render frontend and backend health endpoint.
 
@@ -155,7 +155,7 @@ Manual production deployment helper:
 NODE_ENV=production ./scripts/deploy-production.sh
 ```
 
-Production verification on `main` checks the Render frontend and backend health URLs. Render itself auto-deploys from the GitHub repository/Blueprint.
+Render is the cloud deployment provider for the submitted app. The `stage` branch runs the CI staging verification, and `main` verifies the public Render frontend and backend URLs after Docker Hub publishing. Render itself auto-deploys from the GitHub repository/Blueprint.
 
 ## Render Deployment
 
@@ -173,7 +173,9 @@ To deploy:
 4. Select `render.yaml`.
 5. Deploy the blueprint.
 
-The static frontend writes `config.js` during Render build so browser requests go to the Render backend URL instead of localhost.
+The static frontend builds the React/Vite app and writes `config.js` during Render build so browser requests go to the Render backend URL instead of localhost.
+
+The frontend also keeps a client-side calculation fallback for responsiveness, but the backend API remains the source of truth for saved profiles and persisted spending plans.
 
 ## Git Flow
 
