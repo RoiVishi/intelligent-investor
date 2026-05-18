@@ -133,6 +133,15 @@ Pipeline stages:
 2. `Build Docker images` - builds the backend Docker image and validates Docker Compose.
 3. `Run end-to-end smoke test` - starts the full stack and runs Cypress.
 4. `Deploy to staging` - runs on merges to `stage`, starts the Compose stack, and verifies `GET /health` returns HTTP 200.
+5. `Publish backend image to Docker Hub` - runs on pushes to `main`, builds the backend image, and pushes `latest` plus the commit SHA tag.
+6. `Verify production deployment` - runs on pushes to `main` after Docker publish and verifies the Render frontend and backend health endpoint.
+
+Required GitHub repository secrets for Docker Hub publishing:
+
+| Secret | Purpose |
+| --- | --- |
+| `DOCKERHUB_USERNAME` | Docker Hub username |
+| `DOCKERHUB_TOKEN` | Docker Hub access token with push permission |
 
 Manual staging deployment:
 
@@ -146,7 +155,7 @@ Manual production deployment helper:
 NODE_ENV=production ./scripts/deploy-production.sh
 ```
 
-Production deployment on `main` can reuse the same image and Compose configuration with managed secrets, a persistent database volume, and a reverse proxy or load balancer.
+Production verification on `main` checks the Render frontend and backend health URLs. Render itself auto-deploys from the GitHub repository/Blueprint.
 
 ## Render Deployment
 

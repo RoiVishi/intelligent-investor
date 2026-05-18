@@ -19,6 +19,14 @@ Deploy to staging
   |
   v
 Verify /health returns HTTP 200
+
+Push to main only:
+  |
+  v
+Publish backend image to Docker Hub
+  |
+  v
+Verify production Render URLs
 ```
 
 ## Stages
@@ -27,6 +35,15 @@ Verify /health returns HTTP 200
 - `Build Docker images`: builds the backend image and validates Docker Compose.
 - `Run end-to-end smoke test`: starts the full stack and runs Cypress against the frontend.
 - `Deploy to staging`: only runs on the `stage` branch, starts the stack, and verifies the health endpoint.
+- `Publish backend image to Docker Hub`: only runs on push to `main`; pushes `roivishi/ii-backend:latest` and `roivishi/ii-backend:<commit-sha>`.
+- `Verify production deployment`: only runs on push to `main`; verifies `https://intelligent-investor-api.onrender.com/health` and `https://intelligent-investor-web.onrender.com`.
+
+## Required Secrets
+
+Add these in GitHub repository settings under **Settings > Secrets and variables > Actions**:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
 
 ## Successful Run Evidence
 
@@ -36,6 +53,7 @@ For submission, open the GitHub Actions tab, choose the latest `Intelligent Inve
 - `Build Docker images`
 - `Run end-to-end smoke test`
 - `Deploy to staging` if the run is from `stage`
+- `Publish backend image to Docker Hub` and `Verify production deployment` if the run is from `main`
 
 ## Production Extension
 
