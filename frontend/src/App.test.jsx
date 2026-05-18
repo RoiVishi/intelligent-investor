@@ -21,4 +21,15 @@ describe('App', () => {
     expect(screen.getByTestId('activeInvestments')).toHaveTextContent('₪700');
     expect(screen.getByTestId('guiltFreeSpending')).toHaveTextContent('₪1,925');
   });
+
+  test('shows validation when bank net is higher than gross salary', () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/gross salary/i), { target: { value: '10000' } });
+    fireEvent.change(screen.getByLabelText(/bank net/i), { target: { value: '12000' } });
+
+    expect(screen.getByText('Bank net cannot be higher than gross salary.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /calculate/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled();
+  });
 });

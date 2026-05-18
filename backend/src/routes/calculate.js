@@ -22,6 +22,22 @@ function parseYears(value) {
   return { value: parsed };
 }
 
+function validateSalaryRelationship(grossSalary, bankNet) {
+  if (bankNet !== null && bankNet !== undefined && bankNet > grossSalary) {
+    return { error: 'bankNet cannot be higher than grossSalary' };
+  }
+
+  if (grossSalary > 1000000) {
+    return { error: 'grossSalary looks too high for a monthly salary' };
+  }
+
+  if (bankNet > 1000000) {
+    return { error: 'bankNet looks too high for a monthly salary' };
+  }
+
+  return {};
+}
+
 function mapPlan(row) {
   if (!row || row.fixed_costs === null || row.fixed_costs === undefined) {
     return null;
@@ -72,6 +88,11 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: yearsResult.error });
   }
 
+  const salaryResult = validateSalaryRelationship(grossResult.value, bankNetValue);
+  if (salaryResult.error) {
+    return res.status(400).json({ error: salaryResult.error });
+  }
+
   const result = calculate(grossResult.value, bankNetValue, yearsResult.value);
   return res.status(200).json(result);
 });
@@ -97,6 +118,11 @@ router.post('/profiles', async (req, res) => {
   const yearsResult = parseYears(years);
   if (yearsResult.error) {
     return res.status(400).json({ error: yearsResult.error });
+  }
+
+  const salaryResult = validateSalaryRelationship(grossResult.value, bankNetResult.value);
+  if (salaryResult.error) {
+    return res.status(400).json({ error: salaryResult.error });
   }
 
   const plan = calculate(grossResult.value, bankNetResult.value, yearsResult.value);

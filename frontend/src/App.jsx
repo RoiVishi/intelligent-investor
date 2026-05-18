@@ -34,6 +34,53 @@ function monthsToGoal(monthlyAmount, target) {
   return Math.ceil(safeTarget / safeMonthly);
 }
 
+function parsePositiveField(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function validateForm(form, goalTarget) {
+  const errors = [];
+  const grossSalary = parsePositiveField(form.grossSalary);
+  const bankNet = parsePositiveField(form.bankNet);
+  const years = Number(form.years);
+  const goal = parsePositiveField(goalTarget);
+
+  if (!form.name.trim()) {
+    errors.push('Name is required.');
+  }
+
+  if (grossSalary <= 0) {
+    errors.push('Gross salary must be greater than 0.');
+  }
+
+  if (grossSalary > 1000000) {
+    errors.push('Gross salary looks too high for a monthly salary.');
+  }
+
+  if (bankNet <= 0) {
+    errors.push('Bank net must be greater than 0.');
+  }
+
+  if (grossSalary > 0 && bankNet > grossSalary) {
+    errors.push('Bank net cannot be higher than gross salary.');
+  }
+
+  if (!Number.isInteger(years) || years < 1 || years > 15) {
+    errors.push('Projection years must be a whole number between 1 and 15.');
+  }
+
+  if (goal <= 0) {
+    errors.push('Savings goal must be greater than 0.');
+  }
+
+  if (goal > 100000000) {
+    errors.push('Savings goal is too high for this planner.');
+  }
+
+  return errors;
+}
+
 function ProjectionChart({ projection }) {
   const width = 720;
   const height = 300;
@@ -123,10 +170,13 @@ export default function App() {
   const yearlyInvestment = displayResult.activeInvestments * 12;
   const statusClass = apiStatus.includes('connected') ? 'status connected' : 'status';
   const goalMonths = monthsToGoal(displayResult.savingsGoals, goalTarget);
-  const fixedCostRatio = form.bankNet > 0 ? displayResult.fixedCosts / form.bankNet : 0;
-  const investmentRatio = form.bankNet > 0 ? displayResult.activeInvestments / form.bankNet : 0;
+  const validationErrors = validateForm(form, goalTarget);
+  const hasValidationErrors = validationErrors.length > 0;
+  const grossSalary = parsePositiveField(form.grossSalary);
+  const bankNet = parsePositiveField(form.bankNet);
+  const netRatio = grossSalary > 0 ? bankNet / grossSalary : 0;
   const scenarioResults = scenarios.map(([label, investmentRate, annualReturn]) => {
-    const monthlyInvestment = form.bankNet * investmentRate;
+    const monthlyInvestment = bankNet * investmentRate;
     const projection = projectMonthlyInvestment(monthlyInvestment, annualReturn, form.years);
 
     return {
@@ -138,15 +188,21 @@ export default function App() {
     };
   });
   const insights = [
-    fixedCostRatio > 0.60
-      ? ['warning', 'Fixed costs are above 60% of bank net. This can reduce flexibility.']
-      : ['good', 'Fixed costs are within a healthy planning range.'],
-    investmentRatio < 0.10
-      ? ['warning', 'Monthly investing is below the 10% baseline.']
-      : ['good', 'Monthly investing meets the 10% baseline.'],
+    netRatio > 1
+      ? ['warning', 'Bank net is higher than gross salary. Fix this before saving.']
+      : netRatio > 0.85
+        ? ['warning', 'Bank net is unusually close to gross salary. Double-check the numbers.']
+        : netRatio < 0.45
+          ? ['warning', 'Bank net is low compared with gross salary. Taxes or deductions may be very high.']
+          : ['good', 'Bank net looks reasonable compared with gross salary.'],
     goalMonths
-      ? ['good', `At the current savings rate, the goal can be reached in about ${goalMonths} months.`]
+      ? goalMonths > 120
+        ? ['warning', `This goal may take about ${goalMonths} months at the current savings rate.`]
+        : ['good', `At the current savings rate, the goal can be reached in about ${goalMonths} months.`]
       : ['warning', 'Add a savings goal to estimate the timeline.'],
+    clampYears(form.years) < 5
+      ? ['warning', 'A short projection can understate the compounding effect.']
+      : ['good', 'Projection horizon is long enough to show compounding.'],
   ];
 
   useEffect(() => {
@@ -164,7 +220,7 @@ export default function App() {
     setMessage('');
     setForm((current) => ({
       ...current,
-      [name]: name === 'name' ? value : Number(value),
+      [name]: name === 'name' ? value : value === '' ? '' : Number(value),
     }));
   }
 
@@ -186,6 +242,11 @@ export default function App() {
   async function calculate(event) {
     event.preventDefault();
 
+    if (hasValidationErrors) {
+      setMessage(validationErrors[0]);
+      return;
+    }
+
     try {
       const data = await postJson('/calculate', form);
       setResult(data);
@@ -197,6 +258,11 @@ export default function App() {
   }
 
   async function saveProfile() {
+    if (hasValidationErrors) {
+      setMessage(validationErrors[0]);
+      return;
+    }
+
     try {
       const data = await postJson('/calculate/profiles', form);
       setResult(data.calculation);
@@ -237,6 +303,8 @@ export default function App() {
             name="grossSalary"
             type="number"
             min="1"
+            max="1000000"
+            step="1"
             value={form.grossSalary}
             onChange={updateField}
           />
@@ -247,6 +315,8 @@ export default function App() {
             name="bankNet"
             type="number"
             min="1"
+            max="1000000"
+            step="1"
             value={form.bankNet}
             onChange={updateField}
           />
@@ -258,6 +328,7 @@ export default function App() {
             type="number"
             min="1"
             max="15"
+            step="1"
             value={form.years}
             onChange={updateField}
           />
@@ -268,23 +339,32 @@ export default function App() {
             name="goalTarget"
             type="number"
             min="1"
+            max="100000000"
+            step="1"
             value={goalTarget}
-            onChange={(event) => setGoalTarget(Number(event.target.value))}
+            onChange={(event) => setGoalTarget(event.target.value === '' ? '' : Number(event.target.value))}
           />
 
-          <button type="submit">Calculate</button>
+          <button type="submit" disabled={hasValidationErrors}>Calculate</button>
           <div className="actions">
-            <button type="button" className="secondary" onClick={saveProfile}>Save</button>
+            <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>Save</button>
             <button type="button" className="secondary" onClick={exportPdf}>Export PDF</button>
           </div>
           <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
+          {hasValidationErrors && (
+            <div className="validation-list" aria-label="Validation errors">
+              {validationErrors.map((error) => (
+                <p key={error}>{error}</p>
+              ))}
+            </div>
+          )}
         </form>
 
         <section>
           <div className="summary-strip" aria-label="Financial summary">
             <div>
               <span>Monthly bank net</span>
-              <strong>{formatCurrency(form.bankNet)}</strong>
+              <strong>{formatCurrency(bankNet)}</strong>
             </div>
             <div>
               <span>Monthly investing</span>

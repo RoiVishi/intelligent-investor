@@ -58,6 +58,15 @@ describe('API integration', () => {
     expect(response.body.error).toContain('grossSalary');
   });
 
+  test('POST /calculate rejects bank net higher than gross salary', async () => {
+    const response = await request(app)
+      .post('/calculate')
+      .send({ grossSalary: 10000, bankNet: 12000, years: 3 });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('bankNet cannot be higher than grossSalary');
+  });
+
   test('POST /calculate/profiles persists a financial profile and spending plan', async () => {
     pool.query
       .mockResolvedValueOnce({

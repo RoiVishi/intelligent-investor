@@ -202,6 +202,13 @@ button:active {
   transform: translateY(0);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
 .secondary {
   background: #e7edf6;
   color: var(--ink);
@@ -234,6 +241,23 @@ button:active {
 
 .notice.success {
   color: var(--green);
+}
+
+.validation-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.validation-list p {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid #fed7aa;
+  border-radius: 7px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .summary-strip {
