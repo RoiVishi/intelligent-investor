@@ -1,38 +1,44 @@
 services:
-  # ── Service 1: PostgreSQL Database ────────────────────
   db:
-    image: postgres:15-alpine # official Postgres image — no Dockerfile needed
+    image: postgres:15-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: investor_db
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-investor_db}
     ports:
-      - '5432:5432' # expose for local DB clients (TablePlus, etc.)
+      - '${DB_PORT:-5432}:5432'
     volumes:
-      - db_data:/var/lib/postgresql/data # ← THIS is what makes data persist
-# ── Service 2: Node.js Backend ─────────────────────────
+      - investor_postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-investor_db}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
-    build: ./backend # build image from backend/Dockerfile
+    build: ./backend
     environment:
-      DB_HOST: db # 'db' = the service name above (NOT localhost!)
+      DB_HOST: db
       DB_PORT: '5432'
-      DB_NAME: investor_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      PORT: '5000'
+      DB_NAME: ${DB_NAME:-investor_db}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      PORT: ${PORT:-5000}
     ports:
-      - '3001:5000' # your machine:3001 → container:5000
+      - '${BACKEND_PORT:-3001}:5000'
     depends_on:
-      - db # starts db container first
-  # ── Service 3: Static Frontend (nginx) ─────────────────
+      db:
+        condition: service_healthy
+
   frontend:
-    image: nginx:alpine # no Dockerfile — nginx serves files directly
+    image: nginx:alpine
     ports:
-      - '8080:80' # your machine:8080 → nginx:80
+      - '${FRONTEND_PORT:-8080}:80'
     volumes:
-      - ./frontend:/usr/share/nginx/html:ro # mount frontend folder read-only
+      - ./frontend:/usr/share/nginx/html:ro
     depends_on:
       - backend
-# ── Named Volume ───────────────────────────────────────────
+
 volumes:
-  db_data: # Docker manages this — data survives restarts
+  investor_postgres_data:

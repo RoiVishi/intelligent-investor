@@ -1,0 +1,126 @@
+name: Intelligent Investor CI/CD
+
+on:
+  push:
+    branches: [dev, stage, main]
+  pull_request:
+    branches: [dev, stage, main]
+
+jobs:
+  test:
+    name: Test backend and frontend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: investor_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d investor_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: investor_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run backend unit and integration tests
+        working-directory: backend
+        run: npm test
+
+      - name: Run frontend component test
+        working-directory: frontend
+        run: npm test
+
+  build:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t intelligent-investor-backend:ci ./backend
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config
+
+  e2e:
+    name: Run end-to-end smoke test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js for E2E
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend E2E dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Start application stack
+        run: docker compose up -d --build
+
+      - name: Verify application health
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3001/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+
+      - name: Run Cypress E2E test
+        working-directory: frontend
+        run: npx cypress run
+
+  deploy-staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: github.ref == 'refs/heads/stage'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start staging stack
+        run: docker compose up -d --build
+
+      - name: Verify staging health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3001/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
