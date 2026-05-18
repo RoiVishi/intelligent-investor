@@ -4,10 +4,10 @@ import { calculateClientSide, clampYears, formatCurrency } from './calculations'
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3001';
 
 const bucketLabels = [
-  ['fixedCosts', 'Fixed Costs', '55% midpoint'],
-  ['savingsGoals', 'Savings Goals', '10%'],
-  ['activeInvestments', 'Active Investments', '10%'],
-  ['guiltFreeSpending', 'Guilt-Free Spending', '27.5% midpoint'],
+  ['fixedCosts', 'Fixed Costs', '55% midpoint', 'costs'],
+  ['savingsGoals', 'Savings Goals', '10%', 'savings'],
+  ['activeInvestments', 'Active Investments', '10%', 'investments'],
+  ['guiltFreeSpending', 'Guilt-Free Spending', '27.5% midpoint', 'spending'],
 ];
 
 function ProjectionChart({ projection }) {
@@ -31,20 +31,30 @@ function ProjectionChart({ projection }) {
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Investment projection chart">
-      <rect x="0" y="0" width={width} height={height} fill="#ffffff" />
+      <defs>
+        <linearGradient id="projectionFill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width={width} height={height} fill="transparent" />
       {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
         const y = height - pad.bottom - maxValue * ratio * yScale;
         return (
           <g key={ratio}>
-            <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="#d7dde7" />
+            <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="#d8e0ea" strokeDasharray="4 6" />
             <text className="axis-label" x="8" y={y + 4}>{formatCurrency(maxValue * ratio)}</text>
           </g>
         );
       })}
+      <polygon
+        points={`${pad.left},${height - pad.bottom} ${points} ${width - pad.right},${height - pad.bottom}`}
+        fill="url(#projectionFill)"
+      />
       <polyline
         points={points}
         fill="none"
-        stroke="#2057a5"
+        stroke="#2563eb"
         strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -52,7 +62,7 @@ function ProjectionChart({ projection }) {
       {projection.map((point, index) => {
         const x = pad.left + index * xStep;
         const y = height - pad.bottom - point.value * yScale;
-        return <circle key={point.year} cx={x} cy={y} r="3.5" fill="#2057a5" />;
+        return <circle key={point.year} cx={x} cy={y} r="3.5" fill="#ffffff" stroke="#2563eb" strokeWidth="3" />;
       })}
       {visibleYearLabels.map((point, index) => {
         const originalIndex = projection.findIndex((item) => item.year === point.year);
@@ -84,6 +94,9 @@ export default function App() {
     [form.grossSalary, form.bankNet, form.years],
   );
   const displayResult = result || liveResult;
+  const endingProjectionValue = displayResult.wealthProjection.at(-1)?.value || 0;
+  const yearlyInvestment = displayResult.activeInvestments * 12;
+  const statusClass = apiStatus.includes('connected') ? 'status connected' : 'status';
 
   useEffect(() => {
     setResult(liveResult);
@@ -144,17 +157,21 @@ export default function App() {
 
   return (
     <main>
-      <header>
-        <div>
+      <header className="app-header">
+        <div className="headline">
+          <span className="eyebrow">Financial planning dashboard</span>
           <h1>Intelligent Investor</h1>
           <p>Common Sense Spending buckets and a fixed 7% investment projection.</p>
         </div>
-        <p id="api-status">{apiStatus}</p>
+        <p id="api-status" className={statusClass}>{apiStatus}</p>
       </header>
 
       <div className="layout">
         <form className="panel" onSubmit={calculate}>
-          <h2>Financial profile</h2>
+          <div className="section-title">
+            <span>01</span>
+            <h2>Financial profile</h2>
+          </div>
 
           <label htmlFor="name">Name</label>
           <input id="name" name="name" value={form.name} onChange={updateField} autoComplete="name" />
@@ -194,21 +211,45 @@ export default function App() {
           <div className="actions">
             <button type="button" className="secondary" onClick={saveProfile}>Save</button>
           </div>
-          <div className="error" role="status">{message}</div>
+          <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
         </form>
 
         <section>
+          <div className="summary-strip" aria-label="Financial summary">
+            <div>
+              <span>Monthly bank net</span>
+              <strong>{formatCurrency(form.bankNet)}</strong>
+            </div>
+            <div>
+              <span>Monthly investing</span>
+              <strong>{formatCurrency(displayResult.activeInvestments)}</strong>
+            </div>
+            <div>
+              <span>Annual investing</span>
+              <strong>{formatCurrency(yearlyInvestment)}</strong>
+            </div>
+            <div>
+              <span>Projected value</span>
+              <strong>{formatCurrency(endingProjectionValue)}</strong>
+            </div>
+          </div>
+
           <div className="buckets" data-testid="bucket-grid">
-            {bucketLabels.map(([key, label, note]) => (
-              <article className="bucket" key={key}>
-                <strong>{label}</strong>
+            {bucketLabels.map(([key, label, note, tone]) => (
+              <article className={`bucket ${tone}`} key={key}>
+                <div className="bucket-top">
+                  <strong>{label}</strong>
+                  <small>{note}</small>
+                </div>
                 <span data-testid={key}>{formatCurrency(displayResult[key])}</span>
-                <p>{note}</p>
               </article>
             ))}
           </div>
           <div className="chart-panel">
-            <h2>{clampYears(form.years)}-year investment projection</h2>
+            <div className="section-title">
+              <span>02</span>
+              <h2>{clampYears(form.years)}-year investment projection</h2>
+            </div>
             <div className="chart-frame">
               <ProjectionChart projection={displayResult.wealthProjection} />
             </div>
