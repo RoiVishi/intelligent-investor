@@ -1,0 +1,44 @@
+databases:
+  - name: intelligent-investor-db
+    databaseName: investor_db
+    user: investor_user
+    plan: free
+
+services:
+  - type: web
+    name: intelligent-investor-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    healthCheckPath: /health
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: intelligent-investor-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: intelligent-investor-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: intelligent-investor-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: intelligent-investor-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: intelligent-investor-db
+          property: password
+      - key: PORT
+        value: 5000
+
+  - type: web
+    name: intelligent-investor-web
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: echo "window.API_BASE_URL = 'https://intelligent-investor-api.onrender.com';" > config.js
+    staticPublishPath: .

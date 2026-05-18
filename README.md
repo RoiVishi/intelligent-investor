@@ -148,6 +148,24 @@ NODE_ENV=production ./scripts/deploy-production.sh
 
 Production deployment on `main` can reuse the same image and Compose configuration with managed secrets, a persistent database volume, and a reverse proxy or load balancer.
 
+## Render Deployment
+
+The repository includes `render.yaml` for Render Blueprint deployment:
+
+- `intelligent-investor-db` - PostgreSQL database.
+- `intelligent-investor-api` - Dockerized backend service.
+- `intelligent-investor-web` - static frontend service.
+
+To deploy:
+
+1. Push this repository to GitHub.
+2. In Render, choose **New > Blueprint**.
+3. Connect the GitHub repository.
+4. Select `render.yaml`.
+5. Deploy the blueprint.
+
+The static frontend writes `config.js` during Render build so browser requests go to the Render backend URL instead of localhost.
+
 ## Git Flow
 
 Required branches:
