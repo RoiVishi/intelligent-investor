@@ -4,6 +4,7 @@ import CurrencySelector, { convertCurrency } from './components/CurrencySelector
 import GoalFormModal from './components/GoalFormModal.jsx';
 import GoalDetails from './components/GoalDetails.jsx';
 import ProfileManager from './components/ProfileManager.jsx';
+import ProfileCard from './components/ProfileCard.jsx';
 
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3001';
 
@@ -605,20 +606,19 @@ export default function App() {
       </div>
 
       <div className="layout">
+        <ProfileCard
+          form={form}
+          hasErrors={hasValidationErrors}
+          message={message}
+          onSave={saveProfile}
+          onUpdateField={updateField}
+        />
+
         <form className="panel" onSubmit={calculate}>
           <div className="section-title">
-            <span>01</span>
-            <h2>Financial profile</h2>
+            <span>02</span>
+            <h2>Financial setup</h2>
           </div>
-
-          <label htmlFor="name">Name</label>
-          <input id="name" name="name" value={form.name} onChange={updateField} autoComplete="name" />
-
-          <label htmlFor="grossSalary">Gross salary</label>
-          <input id="grossSalary" name="grossSalary" type="number" min="1" max="1000000" step="1" value={form.grossSalary} onChange={updateField} />
-
-          <label htmlFor="bankNet">Bank net</label>
-          <input id="bankNet" name="bankNet" type="number" min="1" max="1000000" step="1" value={form.bankNet} onChange={updateField} />
 
           <label htmlFor="years">Projection years</label>
           <input id="years" name="years" type="number" min="1" max="15" step="1" value={form.years} onChange={updateField} />
@@ -667,10 +667,8 @@ export default function App() {
 
           <button type="submit" disabled={hasValidationErrors}>Calculate</button>
           <div className="actions">
-            <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>Save</button>
             <button type="button" className="secondary" onClick={exportPdf}>Export PDF</button>
           </div>
-          <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
           {hasValidationErrors && (
             <div className="validation-list" aria-label="Validation errors">
               {validationErrors.map((error) => (
