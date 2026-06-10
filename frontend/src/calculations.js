@@ -38,10 +38,10 @@ export function calculateClientSide(grossSalary, bankNet, years = 15, allocation
   };
 }
 
-export function formatCurrency(value) {
+export function formatCurrency(value, currency = 'ILS') {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'ILS',
+    currency,
     maximumFractionDigits: 0,
   }).format(value || 0);
 }
