@@ -44,7 +44,7 @@ describe('API integration', () => {
       fixedCosts: 3850,
       savingsGoals: 700,
       activeInvestments: 700,
-      guiltFreeSpending: 1925,
+      guiltFreeSpending: 1750,
     });
     expect(response.body.wealthProjection).toHaveLength(3);
   });
@@ -128,7 +128,7 @@ describe('API integration', () => {
           fixed_costs: '3850.00',
           savings_goals: '700.00',
           active_investments: '700.00',
-          guilt_free_spending: '1925.00',
+          guilt_free_spending: '1750.00',
           wealth_projection: [{ year: 1, value: 749 }],
           created_at: '2026-05-18T10:00:00.000Z',
         }],
@@ -170,7 +170,7 @@ describe('API integration', () => {
         fixed_costs: '3850.00',
         savings_goals: '700.00',
         active_investments: '700.00',
-        guilt_free_spending: '1925.00',
+        guilt_free_spending: '1750.00',
         wealth_projection: [{ year: 1, value: 749 }],
         plan_created_at: '2026-05-18T10:01:00.000Z',
       }],

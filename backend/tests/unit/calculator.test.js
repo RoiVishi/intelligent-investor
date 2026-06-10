@@ -32,8 +32,8 @@ describe('individual formulas', () => {
         expect(calculateActiveInvestments(10000)).toBe(1000);
     });
 
-    test('guilt-free spending defaults to the 27.5% midpoint', () => {
-        expect(calculateGuiltFreeSpending(10000)).toBe(2750);
+    test('guilt-free spending defaults to 25% so default buckets total 100%', () => {
+        expect(calculateGuiltFreeSpending(10000)).toBe(2500);
     });
 });
 
@@ -44,12 +44,12 @@ describe('calculateBuckets', () => {
             .forEach((key) => expect(b).toHaveProperty(key));
     });
 
-    test('uses assignment midpoint defaults', () => {
+    test('uses normalized default bucket allocation', () => {
         expect(calculateBuckets(10000)).toEqual({
             fixedCosts: 5500,
             savingsGoals: 1000,
             activeInvestments: 1000,
-            guiltFreeSpending: 2750,
+            guiltFreeSpending: 2500,
         });
     });
 
