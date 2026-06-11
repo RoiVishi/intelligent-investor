@@ -257,6 +257,13 @@ export default function App() {
   const [goalModalMode, setGoalModalMode] = useState('create');
   const [goalDraft, setGoalDraft] = useState(null);
   const [activeView, setActiveView] = useState('home');
+  const [theme, setTheme] = useState(() => {
+    try {
+      return window.localStorage.getItem('ii-theme') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
 
   const activeProfile = profiles.find((profile) => profile.id === activeProfileId) || profiles[0];
   const { form, allocation, goalTarget, goals } = activeProfile;
@@ -376,6 +383,15 @@ export default function App() {
       setActiveProfileId(profiles[0].id);
     }
   }, [profiles, activeProfileId]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      window.localStorage.setItem('ii-theme', theme);
+    } catch {
+      // Persisting the theme is best-effort.
+    }
+  }, [theme]);
 
   function updateActiveProfile(updater) {
     setMessage('');
@@ -650,6 +666,15 @@ export default function App() {
 
   return (
     <main>
+      <button
+        type="button"
+        className="theme-toggle"
+        onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        <span className="theme-toggle-icon" aria-hidden="true" />
+        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+      </button>
       {activeView === 'home' ? (
         <Home
           form={form}
