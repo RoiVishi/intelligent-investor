@@ -1052,21 +1052,60 @@ svg {
 .profile-list {
   display: grid;
   gap: 8px;
-  margin-top: 14px;
+  max-height: 220px;
+  margin: 14px 0 4px;
+  overflow-y: auto;
 }
 
-.profile-list p {
+.profile-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  height: auto;
   margin: 0;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--soft-2);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: none;
   font-weight: 850;
 }
 
-.profile-list p.active {
+.profile-row small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.profile-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--soft);
+  box-shadow: none;
+}
+
+.profile-row.active {
   border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+.profile-row.active strong {
   color: var(--blue);
+}
+
+.profile-form-grid .span-2 {
+  grid-column: 1 / -1;
+}
+
+.modal-error {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--rose) 45%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--rose) 12%, transparent);
+  color: var(--rose-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 @media (max-width: 1040px) {
@@ -1260,12 +1299,12 @@ svg stop {
   -webkit-text-fill-color: transparent;
 }
 
-button:not(.theme-toggle):not(.secondary):not(.icon-button):not(.view-card):not(.goal-card-body) {
+button:not(.theme-toggle):not(.secondary):not(.icon-button):not(.view-card):not(.goal-card-body):not(.profile-row):not(.danger) {
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--violet)));
   color: var(--page);
 }
 
-button:not(.theme-toggle):not(.secondary):not(.icon-button):not(.view-card):not(.goal-card-body):hover {
+button:not(.theme-toggle):not(.secondary):not(.icon-button):not(.view-card):not(.goal-card-body):not(.profile-row):not(.danger):hover {
   background: linear-gradient(135deg, var(--accent-strong), var(--violet));
   color: #ffffff;
 }

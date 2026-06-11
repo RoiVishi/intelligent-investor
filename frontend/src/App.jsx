@@ -246,7 +246,7 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
-  const [profileDraftName, setProfileDraftName] = useState('');
+  const [profileDraft, setProfileDraft] = useState(null);
   const [goalModalMode, setGoalModalMode] = useState('create');
   const [goalDraft, setGoalDraft] = useState(null);
   const [activeView, setActiveView] = useState('home');
@@ -608,37 +608,86 @@ export default function App() {
     setActiveView('budget');
   }
 
-  function createManagedProfile() {
-    const name = profileDraftName.trim();
-    if (!name) {
-      setMessage('Profile name is required.');
+  function validateProfileDraft(draft) {
+    if (!draft) {
+      return '';
+    }
+
+    const grossSalary = parsePositiveField(draft.grossSalary);
+    const bankNet = parsePositiveField(draft.bankNet);
+
+    if (!draft.name.trim()) {
+      return 'Profile name is required.';
+    }
+    if (grossSalary <= 0) {
+      return 'Gross salary must be greater than 0.';
+    }
+    if (grossSalary > 1000000) {
+      return 'Gross salary looks too high for a monthly salary.';
+    }
+    if (bankNet <= 0) {
+      return 'Bank net must be greater than 0.';
+    }
+    if (bankNet > grossSalary) {
+      return 'Bank net cannot be higher than gross salary.';
+    }
+    return '';
+  }
+
+  function openProfileManager() {
+    setProfileDraft({
+      name: activeProfile.name,
+      grossSalary: form.grossSalary,
+      bankNet: form.bankNet,
+    });
+    setIsProfileManagerOpen(true);
+  }
+
+  function selectManagedProfile(profileId) {
+    const profile = profiles.find((item) => item.id === profileId);
+    if (!profile) {
       return;
     }
 
+    setActiveProfileId(profileId);
+    setProfileDraft({
+      name: profile.name,
+      grossSalary: profile.form.grossSalary,
+      bankNet: profile.form.bankNet,
+    });
+  }
+
+  function createManagedProfile() {
+    const name = profileDraft.name.trim();
     const id = `local-${Date.now()}`;
     setProfiles((current) => [...current, createProfile(id, name, {
-      form: { ...form, name },
+      form: {
+        ...form,
+        name,
+        grossSalary: Number(profileDraft.grossSalary),
+        bankNet: Number(profileDraft.bankNet),
+      },
       allocation,
       goals: goals.map((goal) => ({ ...goal })),
     })]);
     setActiveProfileId(id);
-    setProfileDraftName('');
+    setProfileDraft(null);
     setIsProfileManagerOpen(false);
   }
 
-  function renameManagedProfile() {
-    const name = profileDraftName.trim();
-    if (!name) {
-      setMessage('Profile name is required.');
-      return;
-    }
-
+  function saveManagedProfile() {
+    const name = profileDraft.name.trim();
     updateActiveProfile((profile) => ({
       ...profile,
       name,
-      form: { ...profile.form, name },
+      form: {
+        ...profile.form,
+        name,
+        grossSalary: Number(profileDraft.grossSalary),
+        bankNet: Number(profileDraft.bankNet),
+      },
     }));
-    setProfileDraftName('');
+    setProfileDraft(null);
     setIsProfileManagerOpen(false);
   }
 
@@ -704,10 +753,7 @@ export default function App() {
             <button
               type="button"
               className="icon-button manage-button"
-              onClick={() => {
-                setProfileDraftName(activeProfile.name);
-                setIsProfileManagerOpen(true);
-              }}
+              onClick={openProfileManager}
               aria-label="Manage profiles"
               title="Manage profiles"
             >
@@ -991,12 +1037,14 @@ export default function App() {
             isOpen={isProfileManagerOpen}
             profiles={profiles}
             activeProfileId={activeProfileId}
-            draftName={profileDraftName}
-            setDraftName={setProfileDraftName}
+            draft={profileDraft}
+            onDraftChange={setProfileDraft}
+            error={validateProfileDraft(profileDraft)}
             onClose={() => setIsProfileManagerOpen(false)}
             onCreate={createManagedProfile}
-            onRename={renameManagedProfile}
+            onSave={saveManagedProfile}
             onDelete={deleteManagedProfile}
+            onSelect={selectManagedProfile}
           />
           <GoalFormModal
             isOpen={Boolean(goalDraft)}
