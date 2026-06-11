@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_ALLOCATION, calculateClientSide, clampYears, formatCurrency } from './calculations';
+import CurrencySelector, { convertCurrency } from './components/CurrencySelector.jsx';
+import GoalFormModal from './components/GoalFormModal.jsx';
+import GoalDetails from './components/GoalDetails.jsx';
+import ProfileManager from './components/ProfileManager.jsx';
+import Home from './Home.jsx';
 
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3001';
 
@@ -15,6 +20,68 @@ const scenarios = [
   ['Balanced', 0.10, 0.07],
   ['Aggressive', 0.15, 0.09],
 ];
+
+const categories = ['All', 'Transport', 'Housing', 'Education', 'Lifestyle'];
+const statuses = ['All', 'On track', 'At risk'];
+const goalTemplate = {
+  name: 'Car',
+  category: 'Transport',
+  targetAmount: 100000,
+  currentAmount: 0,
+  monthlyContribution: 2500,
+  currency: 'ILS',
+  accent: 'teal',
+};
+
+const defaultGoals = [
+  {
+    id: 'car',
+    name: 'Car',
+    category: 'Transport',
+    targetAmount: 120000,
+    currentAmount: 42000,
+    monthlyContribution: 3500,
+    currency: 'ILS',
+    accent: 'teal',
+  },
+  {
+    id: 'home',
+    name: 'Apartment deposit',
+    category: 'Housing',
+    targetAmount: 450000,
+    currentAmount: 180000,
+    monthlyContribution: 5000,
+    currency: 'ILS',
+    accent: 'blue',
+  },
+  {
+    id: 'degree',
+    name: 'MBA fund',
+    category: 'Education',
+    targetAmount: 38000,
+    currentAmount: 12000,
+    monthlyContribution: 650,
+    currency: 'USD',
+    accent: 'gold',
+  },
+];
+
+function createProfile(id, name, overrides = {}) {
+  return {
+    id,
+    name,
+    form: {
+      name,
+      grossSalary: 10000,
+      bankNet: 6800,
+      years: 15,
+      ...overrides.form,
+    },
+    goalTarget: overrides.goalTarget || 100000,
+    allocation: overrides.allocation || DEFAULT_ALLOCATION,
+    goals: overrides.goals || defaultGoals,
+  };
+}
 
 function projectMonthlyInvestment(monthlyInvestment, annualReturn, years) {
   return Array.from({ length: clampYears(years) }, (_, index) => ({
@@ -37,6 +104,16 @@ function monthsToGoal(monthlyAmount, target) {
 function parsePositiveField(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getGoalStatus(goal) {
+  const monthsLeft = getMonthsLeft(goal);
+  return monthsLeft > 36 ? 'At risk' : 'On track';
+}
+
+function getMonthsLeft(goal) {
+  const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
+  return goal.monthlyContribution > 0 ? Math.ceil(remaining / goal.monthlyContribution) : Infinity;
 }
 
 function validateForm(form, goalTarget, allocation) {
@@ -97,7 +174,7 @@ function validateForm(form, goalTarget, allocation) {
   return errors;
 }
 
-function ProjectionChart({ projection }) {
+function ProjectionChart({ projection, currency }) {
   const width = 720;
   const height = 300;
   const pad = { top: 18, right: 20, bottom: 34, left: 72 };
@@ -120,8 +197,8 @@ function ProjectionChart({ projection }) {
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Investment projection chart">
       <defs>
         <linearGradient id="projectionFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+          <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.24" />
+          <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
         </linearGradient>
       </defs>
       <rect x="0" y="0" width={width} height={height} fill="transparent" />
@@ -129,8 +206,8 @@ function ProjectionChart({ projection }) {
         const y = height - pad.bottom - maxValue * ratio * yScale;
         return (
           <g key={ratio}>
-            <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="#d8e0ea" strokeDasharray="4 6" />
-            <text className="axis-label" x="8" y={y + 4}>{formatCurrency(maxValue * ratio)}</text>
+            <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="#26364f" strokeDasharray="4 6" />
+            <text className="axis-label" x="8" y={y + 4}>{formatCurrency(maxValue * ratio, currency)}</text>
           </g>
         );
       })}
@@ -138,18 +215,11 @@ function ProjectionChart({ projection }) {
         points={`${pad.left},${height - pad.bottom} ${points} ${width - pad.right},${height - pad.bottom}`}
         fill="url(#projectionFill)"
       />
-      <polyline
-        points={points}
-        fill="none"
-        stroke="#2563eb"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <polyline points={points} fill="none" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
       {projection.map((point, index) => {
         const x = pad.left + index * xStep;
         const y = height - pad.bottom - point.value * yScale;
-        return <circle key={point.year} cx={x} cy={y} r="3.5" fill="#ffffff" stroke="#2563eb" strokeWidth="3" />;
+        return <circle key={point.year} cx={x} cy={y} r="3.5" fill="#0f172a" stroke="#38bdf8" strokeWidth="3" />;
       })}
       {visibleYearLabels.map((point, index) => {
         const originalIndex = projection.findIndex((item) => item.year === point.year);
@@ -166,25 +236,53 @@ function ProjectionChart({ projection }) {
 }
 
 export default function App() {
-  const [form, setForm] = useState({
-    name: 'Roi',
-    grossSalary: 10000,
-    bankNet: 6800,
-    years: 15,
-  });
-  const [goalTarget, setGoalTarget] = useState(100000);
-  const [allocation, setAllocation] = useState(DEFAULT_ALLOCATION);
+  const [profiles, setProfiles] = useState(() => [
+    createProfile('local-roi', 'Roi'),
+    createProfile('local-family', 'Family', {
+      form: { name: 'Family', grossSalary: 18000, bankNet: 12600, years: 12 },
+      goals: defaultGoals.map((goal) => ({ ...goal, currentAmount: Math.round(goal.currentAmount * 1.25) })),
+    }),
+  ]);
+  const [activeProfileId, setActiveProfileId] = useState('local-roi');
+  const [globalCurrency, setGlobalCurrency] = useState('ILS');
   const [result, setResult] = useState(() => calculateClientSide(10000, 6800, 15, DEFAULT_ALLOCATION));
   const [message, setMessage] = useState('');
   const [apiStatus, setApiStatus] = useState('Backend: checking...');
+  const [selectedGoalId, setSelectedGoalId] = useState('car');
+  const [sortBy, setSortBy] = useState('progress');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
+  const [profileDraftName, setProfileDraftName] = useState('');
+  const [goalModalMode, setGoalModalMode] = useState('create');
+  const [goalDraft, setGoalDraft] = useState(null);
+  const [activeView, setActiveView] = useState('home');
+
+  const activeProfile = profiles.find((profile) => profile.id === activeProfileId) || profiles[0];
+  const { form, allocation, goalTarget, goals } = activeProfile;
+  const selectedGoal = goals.find((goal) => goal.id === selectedGoalId) || goals[0];
+  const formatMoney = (value) => formatCurrency(value, globalCurrency);
 
   const liveResult = useMemo(
     () => calculateClientSide(form.grossSalary, form.bankNet, form.years, allocation),
     [form.grossSalary, form.bankNet, form.years, allocation],
   );
   const displayResult = result || liveResult;
-  const endingProjectionValue = displayResult.wealthProjection.at(-1)?.value || 0;
-  const yearlyInvestment = displayResult.activeInvestments * 12;
+  const convertedResult = useMemo(() => ({
+    ...displayResult,
+    bankNet: convertCurrency(displayResult.bankNet, 'ILS', globalCurrency),
+    fixedCosts: convertCurrency(displayResult.fixedCosts, 'ILS', globalCurrency),
+    savingsGoals: convertCurrency(displayResult.savingsGoals, 'ILS', globalCurrency),
+    activeInvestments: convertCurrency(displayResult.activeInvestments, 'ILS', globalCurrency),
+    guiltFreeSpending: convertCurrency(displayResult.guiltFreeSpending, 'ILS', globalCurrency),
+    wealthProjection: displayResult.wealthProjection.map((point) => ({
+      ...point,
+      value: convertCurrency(point.value, 'ILS', globalCurrency),
+    })),
+  }), [displayResult, globalCurrency]);
+
+  const endingProjectionValue = convertedResult.wealthProjection.at(-1)?.value || 0;
+  const yearlyInvestment = convertedResult.activeInvestments * 12;
   const statusClass = apiStatus.includes('connected') ? 'status connected' : 'status';
   const goalMonths = monthsToGoal(displayResult.savingsGoals, goalTarget);
   const allocationTotal = Object.values(allocation).reduce((sum, value) => sum + parsePositiveField(value), 0);
@@ -193,8 +291,15 @@ export default function App() {
   const grossSalary = parsePositiveField(form.grossSalary);
   const bankNet = parsePositiveField(form.bankNet);
   const netRatio = grossSalary > 0 ? bankNet / grossSalary : 0;
+  const portfolioTotals = goals.reduce((totals, goal) => {
+    totals.target += convertCurrency(goal.targetAmount, goal.currency, globalCurrency);
+    totals.saved += convertCurrency(goal.currentAmount, goal.currency, globalCurrency);
+    totals.monthly += convertCurrency(goal.monthlyContribution, goal.currency, globalCurrency);
+    return totals;
+  }, { target: 0, saved: 0, monthly: 0 });
+  const portfolioProgress = portfolioTotals.target > 0 ? Math.round((portfolioTotals.saved / portfolioTotals.target) * 100) : 0;
   const scenarioResults = scenarios.map(([label, investmentRate, annualReturn]) => {
-    const monthlyInvestment = bankNet * investmentRate;
+    const monthlyInvestment = convertCurrency(bankNet * investmentRate, 'ILS', globalCurrency);
     const projection = projectMonthlyInvestment(monthlyInvestment, annualReturn, form.years);
 
     return {
@@ -205,6 +310,18 @@ export default function App() {
       endingValue: projection.at(-1)?.value || 0,
     };
   });
+  const filteredGoals = goals
+    .filter((goal) => statusFilter === 'All' || getGoalStatus(goal) === statusFilter)
+    .filter((goal) => categoryFilter === 'All' || goal.category === categoryFilter)
+    .sort((left, right) => {
+      if (sortBy === 'amount') {
+        return convertCurrency(right.targetAmount, right.currency, globalCurrency) - convertCurrency(left.targetAmount, left.currency, globalCurrency);
+      }
+      if (sortBy === 'monthly') {
+        return convertCurrency(right.monthlyContribution, right.currency, globalCurrency) - convertCurrency(left.monthlyContribution, left.currency, globalCurrency);
+      }
+      return (right.currentAmount / right.targetAmount) - (left.currentAmount / left.targetAmount);
+    });
   const insights = [
     netRatio > 1
       ? ['warning', 'Bank net is higher than gross salary. Fix this before saving.']
@@ -218,9 +335,9 @@ export default function App() {
         ? ['warning', `This goal may take about ${goalMonths} months at the current savings rate.`]
         : ['good', `At the current savings rate, the goal can be reached in about ${goalMonths} months.`]
       : ['warning', 'Add a savings goal to estimate the timeline.'],
-    clampYears(form.years) < 5
-      ? ['warning', 'A short projection can understate the compounding effect.']
-      : ['good', 'Projection horizon is long enough to show compounding.'],
+    portfolioProgress >= 50
+      ? ['good', `Goal portfolio is ${portfolioProgress}% funded.`]
+      : ['warning', `Goal portfolio is ${portfolioProgress}% funded. Monthly funding is ${formatMoney(portfolioTotals.monthly)}.`],
   ];
 
   useEffect(() => {
@@ -231,24 +348,119 @@ export default function App() {
     fetch(`${API_BASE_URL}/health`)
       .then((response) => setApiStatus(response.ok ? 'Backend: connected' : 'Backend: unavailable'))
       .catch(() => setApiStatus('Backend: unavailable'));
+
+    fetch(`${API_BASE_URL}/calculate/profiles`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((remoteProfiles) => {
+        if (!Array.isArray(remoteProfiles) || remoteProfiles.length === 0) {
+          return;
+        }
+
+        setProfiles((current) => {
+          const remote = remoteProfiles.map((profile) => createProfile(`remote-${profile.id}`, profile.name, {
+            form: {
+              name: profile.name,
+              grossSalary: profile.grossSalary,
+              bankNet: profile.bankNet,
+              years: 15,
+            },
+          }));
+          return [...remote, ...current.filter((profile) => !remote.some((item) => item.name === profile.name))];
+        });
+      })
+      .catch(() => {});
   }, []);
+
+  function updateActiveProfile(updater) {
+    setMessage('');
+    setProfiles((current) => current.map((profile) => (
+      profile.id === activeProfileId ? updater(profile) : profile
+    )));
+  }
 
   function updateField(event) {
     const { name, value } = event.target;
-    setMessage('');
-    setForm((current) => ({
-      ...current,
-      [name]: name === 'name' ? value : value === '' ? '' : Number(value),
+    updateActiveProfile((profile) => ({
+      ...profile,
+      form: {
+        ...profile.form,
+        [name]: name === 'name' ? value : value === '' ? '' : Number(value),
+      },
+      name: name === 'name' ? value : profile.name,
     }));
   }
 
   function updateAllocation(event) {
     const { name, value } = event.target;
-    setMessage('');
-    setAllocation((current) => ({
-      ...current,
-      [name]: value === '' ? '' : Number(value),
+    updateActiveProfile((profile) => ({
+      ...profile,
+      allocation: {
+        ...profile.allocation,
+        [name]: value === '' ? '' : Number(value),
+      },
     }));
+  }
+
+  function updateGoal(goalId, patch) {
+    updateActiveProfile((profile) => ({
+      ...profile,
+      goals: profile.goals.map((goal) => (goal.id === goalId ? { ...goal, ...patch } : goal)),
+    }));
+  }
+
+  function openCreateGoal() {
+    setGoalModalMode('create');
+    setGoalDraft({
+      ...goalTemplate,
+      id: `goal-${Date.now()}`,
+    });
+  }
+
+  function openEditGoal(goal) {
+    setGoalModalMode('edit');
+    setGoalDraft({ ...goal });
+  }
+
+  function closeGoalModal() {
+    setGoalDraft(null);
+  }
+
+  function saveGoalDraft() {
+    if (!goalDraft?.name?.trim() || goalDraft.targetAmount <= 0) {
+      setMessage('Goal name and target amount are required.');
+      return;
+    }
+
+    const normalizedGoal = {
+      ...goalDraft,
+      name: goalDraft.name.trim(),
+      targetAmount: Math.max(Number(goalDraft.targetAmount) || 0, 1),
+      currentAmount: Math.max(Number(goalDraft.currentAmount) || 0, 0),
+      monthlyContribution: Math.max(Number(goalDraft.monthlyContribution) || 0, 0),
+    };
+
+    updateActiveProfile((profile) => ({
+      ...profile,
+      goals: goalModalMode === 'edit'
+        ? profile.goals.map((goal) => (goal.id === normalizedGoal.id ? normalizedGoal : goal))
+        : [...profile.goals, normalizedGoal],
+    }));
+    setSelectedGoalId(normalizedGoal.id);
+    closeGoalModal();
+  }
+
+  function deleteGoal(goalId) {
+    const remainingGoals = goals.filter((goal) => goal.id !== goalId);
+    if (selectedGoalId === goalId) {
+      setSelectedGoalId(remainingGoals[0]?.id || '');
+    }
+
+    updateActiveProfile((profile) => {
+      return {
+        ...profile,
+        goals: profile.goals.filter((goal) => goal.id !== goalId),
+      };
+    });
   }
 
   function requestPayload() {
@@ -271,6 +483,52 @@ export default function App() {
     }
 
     return data;
+  }
+
+  async function loadExistingProfileByName(name) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/calculate/profiles`);
+      if (!response.ok) {
+        return false;
+      }
+
+      const remoteProfiles = await response.json();
+      const match = Array.isArray(remoteProfiles)
+        ? remoteProfiles.find(
+          (profile) => profile.name.trim().toLowerCase() === name.trim().toLowerCase(),
+        )
+        : null;
+
+      if (!match) {
+        return false;
+      }
+
+      updateActiveProfile((profile) => ({
+        ...profile,
+        name: match.name,
+        form: {
+          ...profile.form,
+          name: match.name,
+          grossSalary: match.grossSalary,
+          bankNet: match.bankNet,
+        },
+      }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function recoverFromDuplicateName(err) {
+    if (!/already exists/i.test(err.message)) {
+      return false;
+    }
+
+    const loaded = await loadExistingProfileByName(form.name);
+    if (loaded) {
+      setMessage(`Profile "${form.name.trim()}" already exists - loaded the saved version from the server.`);
+    }
+    return loaded;
   }
 
   async function calculate(event) {
@@ -302,8 +560,77 @@ export default function App() {
       setResult(data.calculation);
       setMessage('Profile saved.');
     } catch (err) {
-      setMessage(err.message);
+      if (!(await recoverFromDuplicateName(err))) {
+        setMessage(err.message);
+      }
     }
+  }
+
+  async function saveProfileAndContinue(event) {
+    event.preventDefault();
+
+    if (hasValidationErrors) {
+      setMessage(validationErrors[0]);
+      return;
+    }
+
+    try {
+      const data = await postJson('/calculate/profiles', requestPayload());
+      setResult(data.calculation || liveResult);
+      setMessage('Profile saved.');
+    } catch (err) {
+      setResult(liveResult);
+      if (!(await recoverFromDuplicateName(err))) {
+        setMessage(`${err.message}. Continuing with local profile.`);
+      }
+    }
+
+    setActiveView('budget');
+  }
+
+  function createManagedProfile() {
+    const name = profileDraftName.trim();
+    if (!name) {
+      setMessage('Profile name is required.');
+      return;
+    }
+
+    const id = `local-${Date.now()}`;
+    setProfiles((current) => [...current, createProfile(id, name, {
+      form: { ...form, name },
+      allocation,
+      goals: goals.map((goal) => ({ ...goal })),
+    })]);
+    setActiveProfileId(id);
+    setProfileDraftName('');
+    setIsProfileManagerOpen(false);
+  }
+
+  function renameManagedProfile() {
+    const name = profileDraftName.trim();
+    if (!name) {
+      setMessage('Profile name is required.');
+      return;
+    }
+
+    updateActiveProfile((profile) => ({
+      ...profile,
+      name,
+      form: { ...profile.form, name },
+    }));
+    setProfileDraftName('');
+    setIsProfileManagerOpen(false);
+  }
+
+  function deleteManagedProfile() {
+    if (profiles.length < 2) {
+      return;
+    }
+
+    const nextProfiles = profiles.filter((profile) => profile.id !== activeProfileId);
+    setProfiles(nextProfiles);
+    setActiveProfileId(nextProfiles[0].id);
+    setIsProfileManagerOpen(false);
   }
 
   function exportPdf() {
@@ -312,205 +639,346 @@ export default function App() {
 
   return (
     <main>
-      <header className="app-header">
-        <div className="headline">
-          <span className="eyebrow">Financial planning dashboard</span>
-          <h1>Intelligent Investor</h1>
-          <p>Common Sense Spending buckets and a fixed 7% investment projection.</p>
-        </div>
-        <p id="api-status" className={statusClass}>{apiStatus}</p>
-      </header>
-
-      <div className="layout">
-        <form className="panel" onSubmit={calculate}>
-          <div className="section-title">
-            <span>01</span>
-            <h2>Financial profile</h2>
-          </div>
-
-          <label htmlFor="name">Name</label>
-          <input id="name" name="name" value={form.name} onChange={updateField} autoComplete="name" />
-
-          <label htmlFor="grossSalary">Gross salary</label>
-          <input
-            id="grossSalary"
-            name="grossSalary"
-            type="number"
-            min="1"
-            max="1000000"
-            step="1"
-            value={form.grossSalary}
-            onChange={updateField}
-          />
-
-          <label htmlFor="bankNet">Bank net</label>
-          <input
-            id="bankNet"
-            name="bankNet"
-            type="number"
-            min="1"
-            max="1000000"
-            step="1"
-            value={form.bankNet}
-            onChange={updateField}
-          />
-
-          <label htmlFor="years">Projection years</label>
-          <input
-            id="years"
-            name="years"
-            type="number"
-            min="1"
-            max="15"
-            step="1"
-            value={form.years}
-            onChange={updateField}
-          />
-
-          <label htmlFor="goalTarget">Savings goal</label>
-          <input
-            id="goalTarget"
-            name="goalTarget"
-            type="number"
-            min="1"
-            max="100000000"
-            step="1"
-            value={goalTarget}
-            onChange={(event) => setGoalTarget(event.target.value === '' ? '' : Number(event.target.value))}
-          />
-
-          <div className="allocation-controls">
-            <div className="allocation-header">
-              <h3>Bucket percentages</h3>
-              <strong>{allocationTotal}%</strong>
-            </div>
-            {bucketLabels.map(([key, label]) => (
-              <div className="slider-row" key={key}>
-                <label htmlFor={`${key}Percent`}>
-                  <span>{label}</span>
-                  <strong>{allocation[key]}%</strong>
-                </label>
-                <input
-                  id={`${key}Percent`}
-                  aria-label={`${label} percentage`}
-                  name={key}
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={allocation[key]}
-                  onChange={updateAllocation}
-                  style={{ '--value': `${allocation[key]}%` }}
-                />
+      {activeView === 'home' ? (
+        <Home
+          form={form}
+          message={message}
+          validationErrors={validationErrors}
+          hasValidationErrors={hasValidationErrors}
+          onFieldChange={updateField}
+          onSaveProfile={saveProfileAndContinue}
+        />
+      ) : (
+        <>
+          <header className="app-header">
+            <div className="brand-lockup">
+              <span className="logo-mark" aria-hidden="true">
+                <span />
+              </span>
+              <div className="headline">
+                <h1>intelligent investor</h1>
+                <p>Financial goals, portfolio progress, and multi-currency planning.</p>
               </div>
-            ))}
+            </div>
+            <p id="api-status" className={statusClass}>{apiStatus}</p>
+          </header>
+
+          <div className="top-toolbar">
+            <label className="toolbar-field" htmlFor="profile">
+              <span>Profile</span>
+              <select id="profile" value={activeProfileId} onChange={(event) => setActiveProfileId(event.target.value)}>
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>{profile.name}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="icon-button manage-button"
+              onClick={() => {
+                setProfileDraftName(activeProfile.name);
+                setIsProfileManagerOpen(true);
+              }}
+              aria-label="Manage profiles"
+              title="Manage profiles"
+            >
+              *
+            </button>
+            <CurrencySelector value={globalCurrency} onChange={setGlobalCurrency} />
           </div>
 
-          <button type="submit" disabled={hasValidationErrors}>Calculate</button>
-          <div className="actions">
-            <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>Save</button>
-            <button type="button" className="secondary" onClick={exportPdf}>Export PDF</button>
-          </div>
-          <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
-          {hasValidationErrors && (
-            <div className="validation-list" aria-label="Validation errors">
-              {validationErrors.map((error) => (
-                <p key={error}>{error}</p>
-              ))}
+          <nav className="view-switcher" aria-label="Primary views">
+            <button
+              type="button"
+              className={activeView === 'budget' ? 'view-card active' : 'view-card'}
+              onClick={() => setActiveView('budget')}
+            >
+              <strong>Budget Allocation</strong>
+              <span>Review income buckets and investment projections.</span>
+            </button>
+            <button
+              type="button"
+              className={activeView === 'goals' ? 'view-card active' : 'view-card'}
+              onClick={() => setActiveView('goals')}
+            >
+              <strong>Financial Goals</strong>
+              <span>Track, sort, and update your goal portfolio.</span>
+            </button>
+          </nav>
+
+          {activeView === 'budget' && (
+            <div className="layout">
+              <form className="panel" onSubmit={calculate}>
+                <div className="section-title">
+                  <span>02</span>
+                  <h2>Budget allocation</h2>
+                </div>
+
+                <label htmlFor="years">Projection years</label>
+                <input id="years" name="years" type="number" min="1" max="15" step="1" value={form.years} onChange={updateField} />
+
+                <label htmlFor="goalTarget">Savings goal</label>
+                <input
+                  id="goalTarget"
+                  name="goalTarget"
+                  type="number"
+                  min="1"
+                  max="100000000"
+                  step="1"
+                  value={goalTarget}
+                  onChange={(event) => updateActiveProfile((profile) => ({
+                    ...profile,
+                    goalTarget: event.target.value === '' ? '' : Number(event.target.value),
+                  }))}
+                />
+
+                <div className="allocation-controls">
+                  <div className="allocation-header">
+                    <h3>Bucket percentages</h3>
+                    <strong>{allocationTotal}%</strong>
+                  </div>
+                  {bucketLabels.map(([key, label]) => (
+                    <div className="slider-row" key={key}>
+                      <label htmlFor={`${key}Percent`}>
+                        <span>{label}</span>
+                        <strong>{allocation[key]}%</strong>
+                      </label>
+                      <input
+                        id={`${key}Percent`}
+                        aria-label={`${label} percentage`}
+                        name={key}
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={allocation[key]}
+                        onChange={updateAllocation}
+                        style={{ '--value': `${allocation[key]}%` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <button type="submit" disabled={hasValidationErrors}>Calculate</button>
+                <div className="actions">
+                  <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>Save</button>
+                  <button type="button" className="secondary" onClick={exportPdf}>Export PDF</button>
+                </div>
+                <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
+                {hasValidationErrors && (
+                  <div className="validation-list" aria-label="Validation errors">
+                    {validationErrors.map((error) => (
+                      <p key={error}>{error}</p>
+                    ))}
+                  </div>
+                )}
+              </form>
+
+              <section>
+                <div className="summary-strip" aria-label="Financial summary">
+                  <div>
+                    <span>Monthly bank net</span>
+                    <strong>{formatMoney(convertedResult.bankNet)}</strong>
+                  </div>
+                  <div>
+                    <span>Monthly investing</span>
+                    <strong>{formatMoney(convertedResult.activeInvestments)}</strong>
+                  </div>
+                  <div>
+                    <span>Annual investing</span>
+                    <strong>{formatMoney(yearlyInvestment)}</strong>
+                  </div>
+                  <div>
+                    <span>Projected value</span>
+                    <strong>{formatMoney(endingProjectionValue)}</strong>
+                  </div>
+                </div>
+
+                <div className="buckets" data-testid="bucket-grid">
+                  {bucketLabels.map(([key, label, tone]) => (
+                    <article className={`bucket ${tone}`} key={key}>
+                      <div className="bucket-top">
+                        <strong>{label}</strong>
+                        <small>{parsePositiveField(allocation[key])}%</small>
+                      </div>
+                      <span data-testid={key}>{formatMoney(convertedResult[key])}</span>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="feature-grid">
+                  <section className="feature-card goal-card">
+                    <div className="section-title compact">
+                      <span>03</span>
+                      <h2>Savings goal</h2>
+                    </div>
+                    <strong>{formatMoney(convertCurrency(goalTarget, 'ILS', globalCurrency))}</strong>
+                    <p>
+                      {goalMonths
+                        ? `${goalMonths} months at ${formatMoney(convertedResult.savingsGoals)} per month.`
+                        : 'Set a goal to calculate the timeline.'}
+                    </p>
+                  </section>
+
+                  <section className="feature-card insights-card">
+                    <div className="section-title compact">
+                      <span>04</span>
+                      <h2>Smart insights</h2>
+                    </div>
+                    <div className="insight-list">
+                      {insights.map(([tone, text]) => (
+                        <p className={`insight ${tone}`} key={text}>{text}</p>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+
+                <section className="scenario-panel">
+                  <div className="section-title compact">
+                    <span>05</span>
+                    <h2>Scenario comparison</h2>
+                  </div>
+                  <div className="scenario-grid">
+                    {scenarioResults.map((scenario) => (
+                      <article className="scenario" key={scenario.label}>
+                        <strong>{scenario.label}</strong>
+                        <span>{formatMoney(scenario.endingValue)}</span>
+                        <p>
+                          {(scenario.investmentRate * 100).toFixed(0)}% invested,
+                          {' '}
+                          {(scenario.annualReturn * 100).toFixed(0)}% return
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <div className="chart-panel">
+                  <div className="section-title">
+                    <span>06</span>
+                    <h2>{clampYears(form.years)}-year investment projection</h2>
+                  </div>
+                  <div className="chart-frame">
+                    <ProjectionChart projection={convertedResult.wealthProjection} currency={globalCurrency} />
+                  </div>
+                </div>
+              </section>
             </div>
           )}
-        </form>
 
-        <section>
-          <div className="summary-strip" aria-label="Financial summary">
-            <div>
-              <span>Monthly bank net</span>
-              <strong>{formatCurrency(bankNet)}</strong>
-            </div>
-            <div>
-              <span>Monthly investing</span>
-              <strong>{formatCurrency(displayResult.activeInvestments)}</strong>
-            </div>
-            <div>
-              <span>Annual investing</span>
-              <strong>{formatCurrency(yearlyInvestment)}</strong>
-            </div>
-            <div>
-              <span>Projected value</span>
-              <strong>{formatCurrency(endingProjectionValue)}</strong>
-            </div>
-          </div>
-
-          <div className="buckets" data-testid="bucket-grid">
-            {bucketLabels.map(([key, label, tone]) => (
-              <article className={`bucket ${tone}`} key={key}>
-                <div className="bucket-top">
-                  <strong>{label}</strong>
-                  <small>{parsePositiveField(allocation[key])}%</small>
+          {activeView === 'goals' && (
+            <section>
+              <div className="summary-strip portfolio-summary" aria-label="Portfolio summary">
+                <div>
+                  <span>Total target</span>
+                  <strong>{formatMoney(portfolioTotals.target)}</strong>
                 </div>
-                <span data-testid={key}>{formatCurrency(displayResult[key])}</span>
-              </article>
-            ))}
-          </div>
-
-          <div className="feature-grid">
-            <section className="feature-card goal-card">
-              <div className="section-title compact">
-                <span>03</span>
-                <h2>Savings goal</h2>
+                <div>
+                  <span>Currently saved</span>
+                  <strong>{formatMoney(portfolioTotals.saved)}</strong>
+                </div>
+                <div>
+                  <span>Required monthly</span>
+                  <strong>{formatMoney(portfolioTotals.monthly)}</strong>
+                </div>
+                <div>
+                  <span>Goal progress</span>
+                  <strong>{portfolioProgress}%</strong>
+                </div>
               </div>
-              <strong>{formatCurrency(goalTarget)}</strong>
-              <p>
-                {goalMonths
-                  ? `${goalMonths} months at ${formatCurrency(displayResult.savingsGoals)} per month.`
-                  : 'Set a goal to calculate the timeline.'}
-              </p>
+
+              <div className="filter-bar" aria-label="Goal filters">
+                <label className="toolbar-field" htmlFor="sortBy">
+                  <span>Sort by</span>
+                  <select id="sortBy" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                    <option value="progress">Progress</option>
+                    <option value="amount">Target amount</option>
+                    <option value="monthly">Required monthly</option>
+                  </select>
+                </label>
+                <label className="toolbar-field" htmlFor="statusFilter">
+                  <span>Status</span>
+                  <select id="statusFilter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                    {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </label>
+                <label className="toolbar-field" htmlFor="categoryFilter">
+                  <span>Category</span>
+                  <select id="categoryFilter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                    {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                </label>
+                <button type="button" className="create-goal-button" onClick={openCreateGoal}>Create goal</button>
+              </div>
+
+              <div className="goal-grid">
+                {filteredGoals.map((goal) => {
+                  const status = getGoalStatus(goal);
+                  const monthsLeft = getMonthsLeft(goal);
+                  const progress = Math.min(Math.round((goal.currentAmount / goal.targetAmount) * 100), 100);
+                  const target = convertCurrency(goal.targetAmount, goal.currency, globalCurrency);
+                  const saved = convertCurrency(goal.currentAmount, goal.currency, globalCurrency);
+                  const monthly = convertCurrency(goal.monthlyContribution, goal.currency, globalCurrency);
+
+                  return (
+                    <article
+                      className={`goal-tile ${goal.accent} ${goal.id === selectedGoal?.id ? 'selected' : ''}`}
+                      key={goal.id}
+                    >
+                      <div className="goal-tile-header">
+                        <span className={`badge ${status === 'At risk' ? 'risk' : 'track'}`}>{status}</span>
+                        <div className="goal-actions" aria-label={`${goal.name} actions`}>
+                          <button type="button" className="icon-button mini" onClick={() => openEditGoal(goal)} aria-label={`Edit ${goal.name}`}>E</button>
+                          <button type="button" className="icon-button mini danger-icon" onClick={() => deleteGoal(goal.id)} aria-label={`Delete ${goal.name}`}>D</button>
+                        </div>
+                      </div>
+                      <button type="button" className="goal-card-body" onClick={() => setSelectedGoalId(goal.id)}>
+                        <strong>{goal.name}</strong>
+                        <small>{goal.category}</small>
+                      </button>
+                      <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
+                      <dl>
+                        <div><dt>Target amount</dt><dd>{formatMoney(target)}</dd></div>
+                        <div><dt>Currently saved</dt><dd>{formatMoney(saved)}</dd></div>
+                        <div><dt>Required monthly</dt><dd>{formatMoney(monthly)}</dd></div>
+                        <div><dt>Months remaining</dt><dd>{monthsLeft === Infinity ? 'n/a' : monthsLeft}</dd></div>
+                      </dl>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <GoalDetails
+                goal={selectedGoal}
+                globalCurrency={globalCurrency}
+                formatMoney={formatMoney}
+                onContributionChange={(goalId, monthlyContribution) => updateGoal(goalId, { monthlyContribution })}
+                onCurrencyChange={(goalId, currency) => updateGoal(goalId, { currency })}
+              />
             </section>
+          )}
 
-            <section className="feature-card insights-card">
-              <div className="section-title compact">
-                <span>04</span>
-                <h2>Smart insights</h2>
-              </div>
-              <div className="insight-list">
-                {insights.map(([tone, text]) => (
-                  <p className={`insight ${tone}`} key={text}>{text}</p>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <section className="scenario-panel">
-            <div className="section-title compact">
-              <span>05</span>
-              <h2>Scenario comparison</h2>
-            </div>
-            <div className="scenario-grid">
-              {scenarioResults.map((scenario) => (
-                <article className="scenario" key={scenario.label}>
-                  <strong>{scenario.label}</strong>
-                  <span>{formatCurrency(scenario.endingValue)}</span>
-                  <p>
-                    {(scenario.investmentRate * 100).toFixed(0)}% invested,
-                    {' '}
-                    {(scenario.annualReturn * 100).toFixed(0)}% return
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <div className="chart-panel">
-            <div className="section-title">
-              <span>06</span>
-              <h2>{clampYears(form.years)}-year investment projection</h2>
-            </div>
-            <div className="chart-frame">
-              <ProjectionChart projection={displayResult.wealthProjection} />
-            </div>
-          </div>
-        </section>
-      </div>
+          <ProfileManager
+            isOpen={isProfileManagerOpen}
+            profiles={profiles}
+            activeProfileId={activeProfileId}
+            draftName={profileDraftName}
+            setDraftName={setProfileDraftName}
+            onClose={() => setIsProfileManagerOpen(false)}
+            onCreate={createManagedProfile}
+            onRename={renameManagedProfile}
+            onDelete={deleteManagedProfile}
+          />
+          <GoalFormModal
+            isOpen={Boolean(goalDraft)}
+            mode={goalModalMode}
+            draft={goalDraft}
+            onChange={setGoalDraft}
+            onClose={closeGoalModal}
+            onSubmit={saveGoalDraft}
+          />
+        </>
+      )}
     </main>
   );
 }

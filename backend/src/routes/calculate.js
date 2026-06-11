@@ -220,6 +220,41 @@ router.post('/profiles', async (req, res) => {
   }
 });
 
+router.get('/profiles', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         fp.id,
+         fp.name,
+         fp.gross_salary,
+         fp.bank_net,
+         fp.created_at,
+         fp.updated_at,
+         sp.id AS spending_plan_id,
+         sp.profile_id,
+         sp.fixed_costs,
+         sp.savings_goals,
+         sp.active_investments,
+         sp.guilt_free_spending,
+         sp.wealth_projection,
+         sp.created_at AS plan_created_at
+       FROM financial_profiles fp
+       LEFT JOIN LATERAL (
+         SELECT *
+         FROM spending_plans
+         WHERE profile_id = fp.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) sp ON true
+       ORDER BY fp.updated_at DESC, fp.created_at DESC`,
+    );
+
+    return res.status(200).json(result.rows.map(mapProfile));
+  } catch (err) {
+    return res.status(500).json({ error: 'failed to load profiles' });
+  }
+});
+
 router.get('/profiles/:id', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -265,6 +300,63 @@ router.get('/profiles/:id', async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ error: 'failed to load profile' });
+  }
+});
+
+router.patch('/profiles/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const trimmedName = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'profile id must be a positive integer' });
+  }
+
+  if (!trimmedName) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE financial_profiles
+       SET name = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, name, gross_salary, bank_net, created_at, updated_at`,
+      [trimmedName, id],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'profile not found' });
+    }
+
+    return res.status(200).json(mapProfile(result.rows[0]));
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'profile name already exists' });
+    }
+
+    return res.status(500).json({ error: 'failed to rename profile' });
+  }
+});
+
+router.delete('/profiles/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'profile id must be a positive integer' });
+  }
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM financial_profiles WHERE id = $1 RETURNING id',
+      [id],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'profile not found' });
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    return res.status(500).json({ error: 'failed to delete profile' });
   }
 });
 
