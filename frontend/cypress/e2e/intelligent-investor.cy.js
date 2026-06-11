@@ -3,6 +3,8 @@ describe('Intelligent Investor flow', () => {
     cy.visit('/');
     cy.get('#grossSalary').clear().type('10000');
     cy.get('#bankNet').clear().type('7000');
+    cy.contains('button', 'Save Profile').click();
+
     cy.get('#years').clear().type('15');
     cy.contains('button', 'Calculate').click();
 
