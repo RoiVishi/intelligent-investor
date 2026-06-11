@@ -907,6 +907,10 @@ svg {
   transform: none;
 }
 
+.goal-card-body:hover strong {
+  color: var(--accent);
+}
+
 .icon-button.mini {
   width: 30px;
   min-width: 30px;
@@ -1256,12 +1260,12 @@ svg stop {
   -webkit-text-fill-color: transparent;
 }
 
-button:not(.theme-toggle):not(.secondary):not(.icon-button):not(.view-card) {
+button:not(.theme-toggle):not(.secondary):not(.icon-button):not(.view-card):not(.goal-card-body) {
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--violet)));
   color: var(--page);
 }
 
-button:not(.theme-toggle):not(.secondary):not(.icon-button):not(.view-card):hover {
+button:not(.theme-toggle):not(.secondary):not(.icon-button):not(.view-card):not(.goal-card-body):hover {
   background: linear-gradient(135deg, var(--accent-strong), var(--violet));
   color: #ffffff;
 }
