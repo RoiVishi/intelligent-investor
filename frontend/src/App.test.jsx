@@ -108,6 +108,20 @@ describe('App', () => {
     expect(screen.getByLabelText(/name/i)).toHaveValue('Roi Updated');
   });
 
+  test('theme toggle switches between dark and light mode and persists', () => {
+    window.localStorage.removeItem('ii-theme');
+    render(<App />);
+
+    expect(document.documentElement.dataset.theme).toBe('dark');
+
+    fireEvent.click(screen.getByRole('button', { name: /switch to light mode/i }));
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(window.localStorage.getItem('ii-theme')).toBe('light');
+
+    fireEvent.click(screen.getByRole('button', { name: /switch to dark mode/i }));
+    expect(document.documentElement.dataset.theme).toBe('dark');
+  });
+
   test('shows validation when bank net is higher than gross salary', () => {
     render(<App />);
 
