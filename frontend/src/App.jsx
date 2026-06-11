@@ -371,6 +371,12 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (profiles.length > 0 && !profiles.some((profile) => profile.id === activeProfileId)) {
+      setActiveProfileId(profiles[0].id);
+    }
+  }, [profiles, activeProfileId]);
+
   function updateActiveProfile(updater) {
     setMessage('');
     setProfiles((current) => current.map((profile) => (
