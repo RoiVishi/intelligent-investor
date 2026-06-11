@@ -166,8 +166,12 @@ router.post('/profiles', async (req, res) => {
 
   const plan = calculate(grossResult.value, bankNetResult.value, yearsResult.value, allocationResult.value);
 
+  const client = await pool.connect();
+
   try {
-    const profileResult = await pool.query(
+    await client.query('BEGIN');
+
+    const profileResult = await client.query(
       `INSERT INTO financial_profiles (name, gross_salary, bank_net)
        VALUES ($1, $2, $3)
        RETURNING id, name, gross_salary, bank_net, created_at, updated_at`,
@@ -175,7 +179,7 @@ router.post('/profiles', async (req, res) => {
     );
 
     const profile = profileResult.rows[0];
-    const spendingPlanResult = await pool.query(
+    const spendingPlanResult = await client.query(
       `INSERT INTO spending_plans (
          profile_id,
          fixed_costs,
@@ -197,6 +201,8 @@ router.post('/profiles', async (req, res) => {
       ],
     );
 
+    await client.query('COMMIT');
+
     const savedPlan = spendingPlanResult.rows[0];
 
     return res.status(201).json({
@@ -212,11 +218,15 @@ router.post('/profiles', async (req, res) => {
       calculation: plan,
     });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+
     if (err.code === '23505') {
       return res.status(409).json({ error: 'profile name already exists' });
     }
 
     return res.status(500).json({ error: 'failed to save profile' });
+  } finally {
+    client.release();
   }
 });
 

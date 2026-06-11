@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_ALLOCATION, calculateClientSide, clampYears, formatCurrency } from './calculations';
+import { DEFAULT_ALLOCATION, calculateClientSide, clampYears, formatCurrency, projectRecurringInvestment } from './calculations';
 import CurrencySelector, { convertCurrency } from './components/CurrencySelector.jsx';
 import GoalFormModal from './components/GoalFormModal.jsx';
 import GoalDetails from './components/GoalDetails.jsx';
@@ -81,13 +81,6 @@ function createProfile(id, name, overrides = {}) {
     allocation: overrides.allocation || DEFAULT_ALLOCATION,
     goals: overrides.goals || defaultGoals,
   };
-}
-
-function projectMonthlyInvestment(monthlyInvestment, annualReturn, years) {
-  return Array.from({ length: clampYears(years) }, (_, index) => ({
-    year: index + 1,
-    value: Number((monthlyInvestment * Math.pow(1 + annualReturn, index + 1)).toFixed(2)),
-  }));
 }
 
 function monthsToGoal(monthlyAmount, target) {
@@ -307,7 +300,7 @@ export default function App() {
   const portfolioProgress = portfolioTotals.target > 0 ? Math.round((portfolioTotals.saved / portfolioTotals.target) * 100) : 0;
   const scenarioResults = scenarios.map(([label, investmentRate, annualReturn]) => {
     const monthlyInvestment = convertCurrency(bankNet * investmentRate, 'ILS', globalCurrency);
-    const projection = projectMonthlyInvestment(monthlyInvestment, annualReturn, form.years);
+    const projection = projectRecurringInvestment(monthlyInvestment, annualReturn, form.years);
 
     return {
       label,
