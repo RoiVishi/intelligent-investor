@@ -621,6 +621,79 @@ svg {
   box-shadow: var(--shadow);
 }
 
+.home-view {
+  display: grid;
+  min-height: calc(100vh - 66px);
+  place-items: center;
+  gap: 28px;
+  padding: 28px 0;
+}
+
+.home-hero {
+  width: min(720px, 100%);
+  text-align: center;
+}
+
+.home-logo {
+  margin: 0 auto 18px;
+}
+
+.home-hero h1 {
+  font-size: clamp(2rem, 4vw, 4rem);
+  text-transform: none;
+}
+
+.home-hero p {
+  max-width: 620px;
+  margin: 14px auto 0;
+  font-size: 1rem;
+}
+
+.home-profile-card {
+  width: min(420px, 100%);
+  position: static;
+}
+
+.view-switcher {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.view-card {
+  height: auto;
+  min-height: 92px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: rgba(18, 28, 44, 0.86);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.view-card.active {
+  border-color: rgba(56, 189, 248, 0.72);
+  background: #142238;
+}
+
+.view-card strong,
+.view-card span {
+  display: block;
+}
+
+.view-card strong {
+  font-size: 1rem;
+}
+
+.view-card span {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .filter-bar {
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(140px, 170px);
 }
@@ -1002,6 +1075,7 @@ svg {
   .feature-grid,
   .scenario-grid,
   .goal-grid,
+  .view-switcher,
   .filter-bar,
   .detail-grid,
   .detail-controls {

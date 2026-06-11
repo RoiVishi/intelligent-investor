@@ -4,6 +4,7 @@ import CurrencySelector, { convertCurrency } from './components/CurrencySelector
 import GoalFormModal from './components/GoalFormModal.jsx';
 import GoalDetails from './components/GoalDetails.jsx';
 import ProfileManager from './components/ProfileManager.jsx';
+import Home from './Home.jsx';
 
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3001';
 
@@ -255,6 +256,7 @@ export default function App() {
   const [profileDraftName, setProfileDraftName] = useState('');
   const [goalModalMode, setGoalModalMode] = useState('create');
   const [goalDraft, setGoalDraft] = useState(null);
+  const [activeView, setActiveView] = useState('home');
 
   const activeProfile = profiles.find((profile) => profile.id === activeProfileId) || profiles[0];
   const { form, allocation, goalTarget, goals } = activeProfile;
@@ -516,6 +518,26 @@ export default function App() {
     }
   }
 
+  async function saveProfileAndContinue(event) {
+    event.preventDefault();
+
+    if (hasValidationErrors) {
+      setMessage(validationErrors[0]);
+      return;
+    }
+
+    try {
+      const data = await postJson('/calculate/profiles', requestPayload());
+      setResult(data.calculation || liveResult);
+      setMessage('Profile saved.');
+    } catch (err) {
+      setResult(liveResult);
+      setMessage(`${err.message}. Continuing with local profile.`);
+    }
+
+    setActiveView('budget');
+  }
+
   function createManagedProfile() {
     const name = profileDraftName.trim();
     if (!name) {
@@ -567,317 +589,346 @@ export default function App() {
 
   return (
     <main>
-      <header className="app-header">
-        <div className="brand-lockup">
-          <span className="logo-mark" aria-hidden="true">
-            <span />
-          </span>
-          <div className="headline">
-            <h1>intelligent investor</h1>
-            <p>Financial goals, portfolio progress, and multi-currency planning.</p>
-          </div>
-        </div>
-        <p id="api-status" className={statusClass}>{apiStatus}</p>
-      </header>
-
-      <div className="top-toolbar">
-        <label className="toolbar-field" htmlFor="profile">
-          <span>Profile</span>
-          <select id="profile" value={activeProfileId} onChange={(event) => setActiveProfileId(event.target.value)}>
-            {profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>{profile.name}</option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="icon-button manage-button"
-          onClick={() => {
-            setProfileDraftName(activeProfile.name);
-            setIsProfileManagerOpen(true);
-          }}
-          aria-label="Manage profiles"
-          title="Manage profiles"
-        >
-          *
-        </button>
-        <CurrencySelector value={globalCurrency} onChange={setGlobalCurrency} />
-      </div>
-
-      <div className="layout">
-        <form className="panel" onSubmit={calculate}>
-          <div className="section-title">
-            <span>01</span>
-            <h2>Financial profile</h2>
-          </div>
-
-          <label htmlFor="name">Name</label>
-          <input id="name" name="name" value={form.name} onChange={updateField} autoComplete="name" />
-
-          <label htmlFor="grossSalary">Gross salary</label>
-          <input id="grossSalary" name="grossSalary" type="number" min="1" max="1000000" step="1" value={form.grossSalary} onChange={updateField} />
-
-          <label htmlFor="bankNet">Bank net</label>
-          <input id="bankNet" name="bankNet" type="number" min="1" max="1000000" step="1" value={form.bankNet} onChange={updateField} />
-
-          <label htmlFor="years">Projection years</label>
-          <input id="years" name="years" type="number" min="1" max="15" step="1" value={form.years} onChange={updateField} />
-
-          <label htmlFor="goalTarget">Savings goal</label>
-          <input
-            id="goalTarget"
-            name="goalTarget"
-            type="number"
-            min="1"
-            max="100000000"
-            step="1"
-            value={goalTarget}
-            onChange={(event) => updateActiveProfile((profile) => ({
-              ...profile,
-              goalTarget: event.target.value === '' ? '' : Number(event.target.value),
-            }))}
-          />
-
-          <div className="allocation-controls">
-            <div className="allocation-header">
-              <h3>Bucket percentages</h3>
-              <strong>{allocationTotal}%</strong>
-            </div>
-            {bucketLabels.map(([key, label]) => (
-              <div className="slider-row" key={key}>
-                <label htmlFor={`${key}Percent`}>
-                  <span>{label}</span>
-                  <strong>{allocation[key]}%</strong>
-                </label>
-                <input
-                  id={`${key}Percent`}
-                  aria-label={`${label} percentage`}
-                  name={key}
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={allocation[key]}
-                  onChange={updateAllocation}
-                  style={{ '--value': `${allocation[key]}%` }}
-                />
+      {activeView === 'home' ? (
+        <Home
+          form={form}
+          message={message}
+          validationErrors={validationErrors}
+          hasValidationErrors={hasValidationErrors}
+          onFieldChange={updateField}
+          onSaveProfile={saveProfileAndContinue}
+        />
+      ) : (
+        <>
+          <header className="app-header">
+            <div className="brand-lockup">
+              <span className="logo-mark" aria-hidden="true">
+                <span />
+              </span>
+              <div className="headline">
+                <h1>intelligent investor</h1>
+                <p>Financial goals, portfolio progress, and multi-currency planning.</p>
               </div>
-            ))}
+            </div>
+            <p id="api-status" className={statusClass}>{apiStatus}</p>
+          </header>
+
+          <div className="top-toolbar">
+            <label className="toolbar-field" htmlFor="profile">
+              <span>Profile</span>
+              <select id="profile" value={activeProfileId} onChange={(event) => setActiveProfileId(event.target.value)}>
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>{profile.name}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="icon-button manage-button"
+              onClick={() => {
+                setProfileDraftName(activeProfile.name);
+                setIsProfileManagerOpen(true);
+              }}
+              aria-label="Manage profiles"
+              title="Manage profiles"
+            >
+              *
+            </button>
+            <CurrencySelector value={globalCurrency} onChange={setGlobalCurrency} />
           </div>
 
-          <button type="submit" disabled={hasValidationErrors}>Calculate</button>
-          <div className="actions">
-            <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>Save</button>
-            <button type="button" className="secondary" onClick={exportPdf}>Export PDF</button>
-          </div>
-          <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
-          {hasValidationErrors && (
-            <div className="validation-list" aria-label="Validation errors">
-              {validationErrors.map((error) => (
-                <p key={error}>{error}</p>
-              ))}
+          <nav className="view-switcher" aria-label="Primary views">
+            <button
+              type="button"
+              className={activeView === 'budget' ? 'view-card active' : 'view-card'}
+              onClick={() => setActiveView('budget')}
+            >
+              <strong>Budget Allocation</strong>
+              <span>Review income buckets and investment projections.</span>
+            </button>
+            <button
+              type="button"
+              className={activeView === 'goals' ? 'view-card active' : 'view-card'}
+              onClick={() => setActiveView('goals')}
+            >
+              <strong>Financial Goals</strong>
+              <span>Track, sort, and update your goal portfolio.</span>
+            </button>
+          </nav>
+
+          {activeView === 'budget' && (
+            <div className="layout">
+              <form className="panel" onSubmit={calculate}>
+                <div className="section-title">
+                  <span>02</span>
+                  <h2>Budget allocation</h2>
+                </div>
+
+                <label htmlFor="years">Projection years</label>
+                <input id="years" name="years" type="number" min="1" max="15" step="1" value={form.years} onChange={updateField} />
+
+                <label htmlFor="goalTarget">Savings goal</label>
+                <input
+                  id="goalTarget"
+                  name="goalTarget"
+                  type="number"
+                  min="1"
+                  max="100000000"
+                  step="1"
+                  value={goalTarget}
+                  onChange={(event) => updateActiveProfile((profile) => ({
+                    ...profile,
+                    goalTarget: event.target.value === '' ? '' : Number(event.target.value),
+                  }))}
+                />
+
+                <div className="allocation-controls">
+                  <div className="allocation-header">
+                    <h3>Bucket percentages</h3>
+                    <strong>{allocationTotal}%</strong>
+                  </div>
+                  {bucketLabels.map(([key, label]) => (
+                    <div className="slider-row" key={key}>
+                      <label htmlFor={`${key}Percent`}>
+                        <span>{label}</span>
+                        <strong>{allocation[key]}%</strong>
+                      </label>
+                      <input
+                        id={`${key}Percent`}
+                        aria-label={`${label} percentage`}
+                        name={key}
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={allocation[key]}
+                        onChange={updateAllocation}
+                        style={{ '--value': `${allocation[key]}%` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <button type="submit" disabled={hasValidationErrors}>Calculate</button>
+                <div className="actions">
+                  <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>Save</button>
+                  <button type="button" className="secondary" onClick={exportPdf}>Export PDF</button>
+                </div>
+                <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
+                {hasValidationErrors && (
+                  <div className="validation-list" aria-label="Validation errors">
+                    {validationErrors.map((error) => (
+                      <p key={error}>{error}</p>
+                    ))}
+                  </div>
+                )}
+              </form>
+
+              <section>
+                <div className="summary-strip" aria-label="Financial summary">
+                  <div>
+                    <span>Monthly bank net</span>
+                    <strong>{formatMoney(convertedResult.bankNet)}</strong>
+                  </div>
+                  <div>
+                    <span>Monthly investing</span>
+                    <strong>{formatMoney(convertedResult.activeInvestments)}</strong>
+                  </div>
+                  <div>
+                    <span>Annual investing</span>
+                    <strong>{formatMoney(yearlyInvestment)}</strong>
+                  </div>
+                  <div>
+                    <span>Projected value</span>
+                    <strong>{formatMoney(endingProjectionValue)}</strong>
+                  </div>
+                </div>
+
+                <div className="buckets" data-testid="bucket-grid">
+                  {bucketLabels.map(([key, label, tone]) => (
+                    <article className={`bucket ${tone}`} key={key}>
+                      <div className="bucket-top">
+                        <strong>{label}</strong>
+                        <small>{parsePositiveField(allocation[key])}%</small>
+                      </div>
+                      <span data-testid={key}>{formatMoney(convertedResult[key])}</span>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="feature-grid">
+                  <section className="feature-card goal-card">
+                    <div className="section-title compact">
+                      <span>03</span>
+                      <h2>Savings goal</h2>
+                    </div>
+                    <strong>{formatMoney(convertCurrency(goalTarget, 'ILS', globalCurrency))}</strong>
+                    <p>
+                      {goalMonths
+                        ? `${goalMonths} months at ${formatMoney(convertedResult.savingsGoals)} per month.`
+                        : 'Set a goal to calculate the timeline.'}
+                    </p>
+                  </section>
+
+                  <section className="feature-card insights-card">
+                    <div className="section-title compact">
+                      <span>04</span>
+                      <h2>Smart insights</h2>
+                    </div>
+                    <div className="insight-list">
+                      {insights.map(([tone, text]) => (
+                        <p className={`insight ${tone}`} key={text}>{text}</p>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+
+                <section className="scenario-panel">
+                  <div className="section-title compact">
+                    <span>05</span>
+                    <h2>Scenario comparison</h2>
+                  </div>
+                  <div className="scenario-grid">
+                    {scenarioResults.map((scenario) => (
+                      <article className="scenario" key={scenario.label}>
+                        <strong>{scenario.label}</strong>
+                        <span>{formatMoney(scenario.endingValue)}</span>
+                        <p>
+                          {(scenario.investmentRate * 100).toFixed(0)}% invested,
+                          {' '}
+                          {(scenario.annualReturn * 100).toFixed(0)}% return
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <div className="chart-panel">
+                  <div className="section-title">
+                    <span>06</span>
+                    <h2>{clampYears(form.years)}-year investment projection</h2>
+                  </div>
+                  <div className="chart-frame">
+                    <ProjectionChart projection={convertedResult.wealthProjection} currency={globalCurrency} />
+                  </div>
+                </div>
+              </section>
             </div>
           )}
-        </form>
 
-        <section>
-          <div className="summary-strip portfolio-summary" aria-label="Portfolio summary">
-            <div>
-              <span>Total target</span>
-              <strong>{formatMoney(portfolioTotals.target)}</strong>
-            </div>
-            <div>
-              <span>Currently saved</span>
-              <strong>{formatMoney(portfolioTotals.saved)}</strong>
-            </div>
-            <div>
-              <span>Required monthly</span>
-              <strong>{formatMoney(portfolioTotals.monthly)}</strong>
-            </div>
-            <div>
-              <span>Goal progress</span>
-              <strong>{portfolioProgress}%</strong>
-            </div>
-          </div>
-
-          <div className="summary-strip" aria-label="Financial summary">
-            <div>
-              <span>Monthly bank net</span>
-              <strong>{formatMoney(convertedResult.bankNet)}</strong>
-            </div>
-            <div>
-              <span>Monthly investing</span>
-              <strong>{formatMoney(convertedResult.activeInvestments)}</strong>
-            </div>
-            <div>
-              <span>Annual investing</span>
-              <strong>{formatMoney(yearlyInvestment)}</strong>
-            </div>
-            <div>
-              <span>Projected value</span>
-              <strong>{formatMoney(endingProjectionValue)}</strong>
-            </div>
-          </div>
-
-          <div className="buckets" data-testid="bucket-grid">
-            {bucketLabels.map(([key, label, tone]) => (
-              <article className={`bucket ${tone}`} key={key}>
-                <div className="bucket-top">
-                  <strong>{label}</strong>
-                  <small>{parsePositiveField(allocation[key])}%</small>
+          {activeView === 'goals' && (
+            <section>
+              <div className="summary-strip portfolio-summary" aria-label="Portfolio summary">
+                <div>
+                  <span>Total target</span>
+                  <strong>{formatMoney(portfolioTotals.target)}</strong>
                 </div>
-                <span data-testid={key}>{formatMoney(convertedResult[key])}</span>
-              </article>
-            ))}
-          </div>
+                <div>
+                  <span>Currently saved</span>
+                  <strong>{formatMoney(portfolioTotals.saved)}</strong>
+                </div>
+                <div>
+                  <span>Required monthly</span>
+                  <strong>{formatMoney(portfolioTotals.monthly)}</strong>
+                </div>
+                <div>
+                  <span>Goal progress</span>
+                  <strong>{portfolioProgress}%</strong>
+                </div>
+              </div>
 
-          <div className="filter-bar" aria-label="Goal filters">
-            <label className="toolbar-field" htmlFor="sortBy">
-              <span>Sort by</span>
-              <select id="sortBy" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                <option value="progress">Progress</option>
-                <option value="amount">Target amount</option>
-                <option value="monthly">Required monthly</option>
-              </select>
-            </label>
-            <label className="toolbar-field" htmlFor="statusFilter">
-              <span>Status</span>
-              <select id="statusFilter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
-              </select>
-            </label>
-            <label className="toolbar-field" htmlFor="categoryFilter">
-              <span>Category</span>
-              <select id="categoryFilter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-                {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-              </select>
-            </label>
-            <button type="button" className="create-goal-button" onClick={openCreateGoal}>Create goal</button>
-          </div>
+              <div className="filter-bar" aria-label="Goal filters">
+                <label className="toolbar-field" htmlFor="sortBy">
+                  <span>Sort by</span>
+                  <select id="sortBy" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                    <option value="progress">Progress</option>
+                    <option value="amount">Target amount</option>
+                    <option value="monthly">Required monthly</option>
+                  </select>
+                </label>
+                <label className="toolbar-field" htmlFor="statusFilter">
+                  <span>Status</span>
+                  <select id="statusFilter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                    {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </label>
+                <label className="toolbar-field" htmlFor="categoryFilter">
+                  <span>Category</span>
+                  <select id="categoryFilter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                    {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                </label>
+                <button type="button" className="create-goal-button" onClick={openCreateGoal}>Create goal</button>
+              </div>
 
-          <div className="goal-grid">
-            {filteredGoals.map((goal) => {
-              const status = getGoalStatus(goal);
-              const monthsLeft = getMonthsLeft(goal);
-              const progress = Math.min(Math.round((goal.currentAmount / goal.targetAmount) * 100), 100);
-              const target = convertCurrency(goal.targetAmount, goal.currency, globalCurrency);
-              const saved = convertCurrency(goal.currentAmount, goal.currency, globalCurrency);
-              const monthly = convertCurrency(goal.monthlyContribution, goal.currency, globalCurrency);
+              <div className="goal-grid">
+                {filteredGoals.map((goal) => {
+                  const status = getGoalStatus(goal);
+                  const monthsLeft = getMonthsLeft(goal);
+                  const progress = Math.min(Math.round((goal.currentAmount / goal.targetAmount) * 100), 100);
+                  const target = convertCurrency(goal.targetAmount, goal.currency, globalCurrency);
+                  const saved = convertCurrency(goal.currentAmount, goal.currency, globalCurrency);
+                  const monthly = convertCurrency(goal.monthlyContribution, goal.currency, globalCurrency);
 
-              return (
-                <article
-                  className={`goal-tile ${goal.accent} ${goal.id === selectedGoal?.id ? 'selected' : ''}`}
-                  key={goal.id}
-                >
-                  <div className="goal-tile-header">
-                    <span className={`badge ${status === 'At risk' ? 'risk' : 'track'}`}>{status}</span>
-                    <div className="goal-actions" aria-label={`${goal.name} actions`}>
-                      <button type="button" className="icon-button mini" onClick={() => openEditGoal(goal)} aria-label={`Edit ${goal.name}`}>E</button>
-                      <button type="button" className="icon-button mini danger-icon" onClick={() => deleteGoal(goal.id)} aria-label={`Delete ${goal.name}`}>D</button>
-                    </div>
-                  </div>
-                  <button type="button" className="goal-card-body" onClick={() => setSelectedGoalId(goal.id)}>
-                    <strong>{goal.name}</strong>
-                    <small>{goal.category}</small>
-                  </button>
-                  <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
-                  <dl>
-                    <div><dt>Target amount</dt><dd>{formatMoney(target)}</dd></div>
-                    <div><dt>Currently saved</dt><dd>{formatMoney(saved)}</dd></div>
-                    <div><dt>Required monthly</dt><dd>{formatMoney(monthly)}</dd></div>
-                    <div><dt>Months remaining</dt><dd>{monthsLeft === Infinity ? 'n/a' : monthsLeft}</dd></div>
-                  </dl>
-                </article>
-              );
-            })}
-          </div>
+                  return (
+                    <article
+                      className={`goal-tile ${goal.accent} ${goal.id === selectedGoal?.id ? 'selected' : ''}`}
+                      key={goal.id}
+                    >
+                      <div className="goal-tile-header">
+                        <span className={`badge ${status === 'At risk' ? 'risk' : 'track'}`}>{status}</span>
+                        <div className="goal-actions" aria-label={`${goal.name} actions`}>
+                          <button type="button" className="icon-button mini" onClick={() => openEditGoal(goal)} aria-label={`Edit ${goal.name}`}>E</button>
+                          <button type="button" className="icon-button mini danger-icon" onClick={() => deleteGoal(goal.id)} aria-label={`Delete ${goal.name}`}>D</button>
+                        </div>
+                      </div>
+                      <button type="button" className="goal-card-body" onClick={() => setSelectedGoalId(goal.id)}>
+                        <strong>{goal.name}</strong>
+                        <small>{goal.category}</small>
+                      </button>
+                      <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
+                      <dl>
+                        <div><dt>Target amount</dt><dd>{formatMoney(target)}</dd></div>
+                        <div><dt>Currently saved</dt><dd>{formatMoney(saved)}</dd></div>
+                        <div><dt>Required monthly</dt><dd>{formatMoney(monthly)}</dd></div>
+                        <div><dt>Months remaining</dt><dd>{monthsLeft === Infinity ? 'n/a' : monthsLeft}</dd></div>
+                      </dl>
+                    </article>
+                  );
+                })}
+              </div>
 
-          <GoalDetails
-            goal={selectedGoal}
-            globalCurrency={globalCurrency}
-            formatMoney={formatMoney}
-            onContributionChange={(goalId, monthlyContribution) => updateGoal(goalId, { monthlyContribution })}
-            onCurrencyChange={(goalId, currency) => updateGoal(goalId, { currency })}
+              <GoalDetails
+                goal={selectedGoal}
+                globalCurrency={globalCurrency}
+                formatMoney={formatMoney}
+                onContributionChange={(goalId, monthlyContribution) => updateGoal(goalId, { monthlyContribution })}
+                onCurrencyChange={(goalId, currency) => updateGoal(goalId, { currency })}
+              />
+            </section>
+          )}
+
+          <ProfileManager
+            isOpen={isProfileManagerOpen}
+            profiles={profiles}
+            activeProfileId={activeProfileId}
+            draftName={profileDraftName}
+            setDraftName={setProfileDraftName}
+            onClose={() => setIsProfileManagerOpen(false)}
+            onCreate={createManagedProfile}
+            onRename={renameManagedProfile}
+            onDelete={deleteManagedProfile}
           />
-
-          <div className="feature-grid">
-            <section className="feature-card goal-card">
-              <div className="section-title compact">
-                <span>04</span>
-                <h2>Savings goal</h2>
-              </div>
-              <strong>{formatMoney(convertCurrency(goalTarget, 'ILS', globalCurrency))}</strong>
-              <p>
-                {goalMonths
-                  ? `${goalMonths} months at ${formatMoney(convertedResult.savingsGoals)} per month.`
-                  : 'Set a goal to calculate the timeline.'}
-              </p>
-            </section>
-
-            <section className="feature-card insights-card">
-              <div className="section-title compact">
-                <span>05</span>
-                <h2>Smart insights</h2>
-              </div>
-              <div className="insight-list">
-                {insights.map(([tone, text]) => (
-                  <p className={`insight ${tone}`} key={text}>{text}</p>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <section className="scenario-panel">
-            <div className="section-title compact">
-              <span>06</span>
-              <h2>Scenario comparison</h2>
-            </div>
-            <div className="scenario-grid">
-              {scenarioResults.map((scenario) => (
-                <article className="scenario" key={scenario.label}>
-                  <strong>{scenario.label}</strong>
-                  <span>{formatMoney(scenario.endingValue)}</span>
-                  <p>
-                    {(scenario.investmentRate * 100).toFixed(0)}% invested,
-                    {' '}
-                    {(scenario.annualReturn * 100).toFixed(0)}% return
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <div className="chart-panel">
-            <div className="section-title">
-              <span>07</span>
-              <h2>{clampYears(form.years)}-year investment projection</h2>
-            </div>
-            <div className="chart-frame">
-              <ProjectionChart projection={convertedResult.wealthProjection} currency={globalCurrency} />
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <ProfileManager
-        isOpen={isProfileManagerOpen}
-        profiles={profiles}
-        activeProfileId={activeProfileId}
-        draftName={profileDraftName}
-        setDraftName={setProfileDraftName}
-        onClose={() => setIsProfileManagerOpen(false)}
-        onCreate={createManagedProfile}
-        onRename={renameManagedProfile}
-        onDelete={deleteManagedProfile}
-      />
-      <GoalFormModal
-        isOpen={Boolean(goalDraft)}
-        mode={goalModalMode}
-        draft={goalDraft}
-        onChange={setGoalDraft}
-        onClose={closeGoalModal}
-        onSubmit={saveGoalDraft}
-      />
+          <GoalFormModal
+            isOpen={Boolean(goalDraft)}
+            mode={goalModalMode}
+            draft={goalDraft}
+            onChange={setGoalDraft}
+            onClose={closeGoalModal}
+            onSubmit={saveGoalDraft}
+          />
+        </>
+      )}
     </main>
   );
 }
