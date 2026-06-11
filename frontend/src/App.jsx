@@ -379,9 +379,14 @@ export default function App() {
 
   function updateActiveProfile(updater) {
     setMessage('');
-    setProfiles((current) => current.map((profile) => (
-      profile.id === activeProfileId ? updater(profile) : profile
-    )));
+    setProfiles((current) => {
+      const resolvedId = current.some((profile) => profile.id === activeProfileId)
+        ? activeProfileId
+        : (current[0] && current[0].id);
+      return current.map((profile) => (
+        profile.id === resolvedId ? updater(profile) : profile
+      ));
+    });
   }
 
   function updateField(event) {
