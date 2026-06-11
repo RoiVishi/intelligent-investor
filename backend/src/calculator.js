@@ -55,17 +55,20 @@ function clampYears(years = DEFAULT_YEARS) {
     : DEFAULT_YEARS;
 }
 
-function calculateWealthProjection(investment, years = DEFAULT_YEARS) {
+// Future value of recurring deposits: each year's contributions are added
+// at the start of the year and the whole balance compounds at the fixed return.
+function calculateWealthProjection(monthlyInvestment, years = DEFAULT_YEARS) {
   const projectionYears = clampYears(years);
+  const annualContribution = Number(monthlyInvestment) * 12;
+  const projection = [];
+  let value = 0;
 
-  return Array.from({ length: projectionYears }, (_, index) => {
-    const year = index + 1;
-    const value = Number(investment) * Math.pow(1 + DEFAULT_ANNUAL_RETURN, year);
-    return {
-      year,
-      value: roundMoney(value),
-    };
-  });
+  for (let year = 1; year <= projectionYears; year += 1) {
+    value = (value + annualContribution) * (1 + DEFAULT_ANNUAL_RETURN);
+    projection.push({ year, value: roundMoney(value) });
+  }
+
+  return projection;
 }
 
 function calculate(grossSalary, bankNet = null, years = DEFAULT_YEARS, rates = {}) {

@@ -80,11 +80,12 @@ describe('calculateWealthProjection', () => {
         }
     });
 
-    test('uses fixed 7% annual return for each assignment year', () => {
-        expect(calculateWealthProjection(1000, 1)[0]).toEqual({
-            year: 1,
-            value: 1070,
-        });
+    test('accumulates yearly contributions at the fixed 7% annual return', () => {
+        // Year 1: 1000/month * 12 = 12000 deposited, grown by 7% -> 12840.
+        // Year 2: (12840 + 12000) * 1.07 -> 26578.80.
+        const proj = calculateWealthProjection(1000, 2);
+        expect(proj[0]).toEqual({ year: 1, value: 12840 });
+        expect(proj[1]).toEqual({ year: 2, value: 26578.80 });
     });
 });
 
@@ -110,6 +111,6 @@ describe('calculate (master)', () => {
     test('uses custom active investment rate for projection', () => {
         const result = calculate(10000, 5000, 1, { activeInvestments: 0.20 });
         expect(result.activeInvestments).toBe(1000);
-        expect(result.wealthProjection[0].value).toBe(1070);
+        expect(result.wealthProjection[0].value).toBe(12840);
     });
 });

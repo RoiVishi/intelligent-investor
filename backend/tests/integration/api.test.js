@@ -1,9 +1,14 @@
 const request = require('supertest');
 
-jest.mock('../../src/db', () => ({
-  query: jest.fn(),
-  ensureSchema: jest.fn(),
-}));
+jest.mock('../../src/db', () => {
+  const mockClient = { query: jest.fn(), release: jest.fn() };
+  return {
+    query: jest.fn(),
+    connect: jest.fn(async () => mockClient),
+    ensureSchema: jest.fn(),
+    __mockClient: mockClient,
+  };
+});
 
 const pool = require('../../src/db');
 const app = require('../../src/app');
@@ -11,6 +16,8 @@ const app = require('../../src/app');
 describe('API integration', () => {
   beforeEach(() => {
     pool.query.mockReset();
+    pool.__mockClient.query.mockReset();
+    pool.__mockClient.release.mockClear();
   });
 
   test('GET /health returns 200 when database is connected', async () => {
@@ -69,7 +76,8 @@ describe('API integration', () => {
     expect(response.body.savingsGoals).toBe(1050);
     expect(response.body.activeInvestments).toBe(1400);
     expect(response.body.guiltFreeSpending).toBe(1050);
-    expect(response.body.wealthProjection[0].value).toBe(1498);
+    // 1400/month * 12 = 16800 deposited in year 1, grown by 7% -> 17976.
+    expect(response.body.wealthProjection[0].value).toBe(17976);
   });
 
   test('POST /calculate rejects allocation percentages above 100 total', async () => {
@@ -109,8 +117,9 @@ describe('API integration', () => {
     expect(response.body.error).toBe('bankNet cannot be higher than grossSalary');
   });
 
-  test('POST /calculate/profiles persists a financial profile and spending plan', async () => {
-    pool.query
+  test('POST /calculate/profiles persists a financial profile and spending plan in one transaction', async () => {
+    pool.__mockClient.query
+      .mockResolvedValueOnce({}) // BEGIN
       .mockResolvedValueOnce({
         rows: [{
           id: 42,
@@ -129,10 +138,11 @@ describe('API integration', () => {
           savings_goals: '700.00',
           active_investments: '700.00',
           guilt_free_spending: '1750.00',
-          wealth_projection: [{ year: 1, value: 749 }],
+          wealth_projection: [{ year: 1, value: 8988 }],
           created_at: '2026-05-18T10:00:00.000Z',
         }],
-      });
+      })
+      .mockResolvedValueOnce({}); // COMMIT
 
     const response = await request(app)
       .post('/calculate/profiles')
@@ -141,11 +151,16 @@ describe('API integration', () => {
     expect(response.status).toBe(201);
     expect(response.body.profile.id).toBe(42);
     expect(response.body.calculation.activeInvestments).toBe(700);
-    expect(pool.query).toHaveBeenCalledTimes(2);
+    expect(pool.__mockClient.query).toHaveBeenCalledWith('BEGIN');
+    expect(pool.__mockClient.query).toHaveBeenCalledWith('COMMIT');
+    expect(pool.__mockClient.release).toHaveBeenCalled();
   });
 
-  test('POST /calculate/profiles rejects duplicate profile names', async () => {
-    pool.query.mockRejectedValueOnce({ code: '23505' });
+  test('POST /calculate/profiles rejects duplicate profile names and rolls back', async () => {
+    pool.__mockClient.query
+      .mockResolvedValueOnce({}) // BEGIN
+      .mockRejectedValueOnce({ code: '23505' })
+      .mockResolvedValueOnce({}); // ROLLBACK
 
     const response = await request(app)
       .post('/calculate/profiles')
@@ -153,6 +168,8 @@ describe('API integration', () => {
 
     expect(response.status).toBe(409);
     expect(response.body.error).toBe('profile name already exists');
+    expect(pool.__mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(pool.__mockClient.release).toHaveBeenCalled();
   });
 
   test('GET /calculate/profiles/:id loads a profile with its latest plan', async () => {
