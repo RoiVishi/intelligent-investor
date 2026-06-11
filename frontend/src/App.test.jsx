@@ -40,6 +40,46 @@ describe('App', () => {
     expect(screen.getByTestId('guiltFreeSpending')).toHaveTextContent('₪2,100');
   });
 
+  test('duplicate profile name loads the saved profile from the server', async () => {
+    let profileListCalls = 0;
+
+    vi.stubGlobal('fetch', vi.fn((url, options = {}) => {
+      if (options.method === 'POST' && String(url).includes('/calculate/profiles')) {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          json: async () => ({ error: 'profile name already exists' }),
+        });
+      }
+
+      if (String(url).includes('/calculate/profiles')) {
+        profileListCalls += 1;
+        return Promise.resolve({
+          ok: true,
+          json: async () => (profileListCalls === 1
+            ? []
+            : [{ id: 7, name: 'Roi', grossSalary: 11000, bankNet: 7700 }]),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ status: 'ok', database: 'connected' }),
+      });
+    }));
+
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/gross salary/i), { target: { value: '10000' } });
+    fireEvent.change(screen.getByLabelText(/bank net/i), { target: { value: '7000' } });
+    fireEvent.click(screen.getByRole('button', { name: /save profile/i }));
+
+    await screen.findByText(/already exists - loaded the saved version/i);
+    await screen.findByTestId('bucket-grid');
+
+    expect(screen.getByTestId('fixedCosts')).toHaveTextContent('₪4,235');
+  });
+
   test('shows validation when bank net is higher than gross salary', () => {
     render(<App />);
 

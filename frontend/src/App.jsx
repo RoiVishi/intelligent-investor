@@ -485,6 +485,52 @@ export default function App() {
     return data;
   }
 
+  async function loadExistingProfileByName(name) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/calculate/profiles`);
+      if (!response.ok) {
+        return false;
+      }
+
+      const remoteProfiles = await response.json();
+      const match = Array.isArray(remoteProfiles)
+        ? remoteProfiles.find(
+          (profile) => profile.name.trim().toLowerCase() === name.trim().toLowerCase(),
+        )
+        : null;
+
+      if (!match) {
+        return false;
+      }
+
+      updateActiveProfile((profile) => ({
+        ...profile,
+        name: match.name,
+        form: {
+          ...profile.form,
+          name: match.name,
+          grossSalary: match.grossSalary,
+          bankNet: match.bankNet,
+        },
+      }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function recoverFromDuplicateName(err) {
+    if (!/already exists/i.test(err.message)) {
+      return false;
+    }
+
+    const loaded = await loadExistingProfileByName(form.name);
+    if (loaded) {
+      setMessage(`Profile "${form.name.trim()}" already exists - loaded the saved version from the server.`);
+    }
+    return loaded;
+  }
+
   async function calculate(event) {
     event.preventDefault();
 
@@ -514,7 +560,9 @@ export default function App() {
       setResult(data.calculation);
       setMessage('Profile saved.');
     } catch (err) {
-      setMessage(err.message);
+      if (!(await recoverFromDuplicateName(err))) {
+        setMessage(err.message);
+      }
     }
   }
 
@@ -532,7 +580,9 @@ export default function App() {
       setMessage('Profile saved.');
     } catch (err) {
       setResult(liveResult);
-      setMessage(`${err.message}. Continuing with local profile.`);
+      if (!(await recoverFromDuplicateName(err))) {
+        setMessage(`${err.message}. Continuing with local profile.`);
+      }
     }
 
     setActiveView('budget');
