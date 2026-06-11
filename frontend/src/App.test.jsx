@@ -80,6 +80,34 @@ describe('App', () => {
     expect(screen.getByTestId('fixedCosts')).toHaveTextContent('₪4,235');
   });
 
+  test('inputs stay editable after profiles load from the server', async () => {
+    vi.stubGlobal('fetch', vi.fn((url, options = {}) => {
+      if (!options.method && String(url).includes('/calculate/profiles')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ([{ id: 7, name: 'Roi', grossSalary: 11000, bankNet: 7700 }]),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ status: 'ok', database: 'connected' }),
+      });
+    }));
+
+    render(<App />);
+
+    // The remote profile replaces the default local one and populates the form.
+    await screen.findByDisplayValue('11000');
+
+    // Editing must still work after the remote profile becomes active.
+    fireEvent.change(screen.getByLabelText(/gross salary/i), { target: { value: '15000' } });
+    expect(screen.getByLabelText(/gross salary/i)).toHaveValue(15000);
+
+    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Roi Updated' } });
+    expect(screen.getByLabelText(/name/i)).toHaveValue('Roi Updated');
+  });
+
   test('shows validation when bank net is higher than gross salary', () => {
     render(<App />);
 
