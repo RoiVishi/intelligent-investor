@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import App from './App.jsx';
 
@@ -77,7 +77,11 @@ describe('App', () => {
     await screen.findByText(/already exists - loaded the saved version/i);
     await screen.findByTestId('bucket-grid');
 
-    expect(screen.getByTestId('fixedCosts')).toHaveTextContent('₪4,235');
+    // The server profile propagates to the buckets through an extra
+    // render cycle, so wait for the final value instead of asserting once.
+    await waitFor(() => {
+      expect(screen.getByTestId('fixedCosts')).toHaveTextContent('₪4,235');
+    });
   });
 
   test('inputs stay editable after profiles load from the server', async () => {
