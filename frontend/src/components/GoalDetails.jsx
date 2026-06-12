@@ -12,6 +12,7 @@ export default function GoalDetails({
   formatMoney,
   onContributionChange,
   onCurrencyChange,
+  t,
 }) {
   if (!goal) {
     return null;
@@ -21,34 +22,34 @@ export default function GoalDetails({
   const monthly = Math.max(Number(goal.monthlyContribution) || 0, 0);
   const monthsLeft = monthly > 0 ? Math.ceil(remaining / monthly) : null;
   const completionDate = monthsLeft === null
-    ? 'Set a monthly contribution'
-    : addMonths(new Date(), monthsLeft).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    ? t.setMonthlyContribution
+    : addMonths(new Date(), monthsLeft).toLocaleDateString(t.dir === 'rtl' ? 'he-IL' : 'en-US', { month: 'short', year: 'numeric' });
   const convertedRemaining = convertCurrency(remaining, goal.currency, globalCurrency);
 
   return (
     <section className="goal-details">
       <div className="section-title compact">
         <span>03</span>
-        <h2>{goal.name} breakdown</h2>
+        <h2>{t.goalBreakdown(goal.name)}</h2>
       </div>
       <div className="detail-grid">
         <div>
-          <span>Remaining</span>
+          <span>{t.remaining}</span>
           <strong>{formatMoney(convertedRemaining)}</strong>
         </div>
         <div>
-          <span>Time to reach goal</span>
-          <strong>{monthsLeft === null ? 'n/a' : `${monthsLeft} months`}</strong>
+          <span>{t.timeToGoal}</span>
+          <strong>{monthsLeft === null ? t.notAvailable : t.monthsCount(monthsLeft)}</strong>
         </div>
         <div>
-          <span>Estimated completion date</span>
+          <span>{t.estimatedCompletion}</span>
           <strong>{completionDate}</strong>
         </div>
       </div>
 
       <div className="detail-controls">
         <label htmlFor="goalCurrency">
-          <span>Goal currency</span>
+          <span>{t.goalCurrency}</span>
           <select id="goalCurrency" value={goal.currency} onChange={(event) => onCurrencyChange(goal.id, event.target.value)}>
             {Object.entries(currencies).map(([code, currency]) => (
               <option key={code} value={code}>{currency.symbol} {currency.label}</option>
@@ -57,7 +58,7 @@ export default function GoalDetails({
         </label>
         <div className="slider-row">
           <label htmlFor="monthlyContribution">
-            <span>Monthly Contribution</span>
+            <span>{t.monthlyContribution}</span>
             <strong>{formatMoney(convertCurrency(monthly, goal.currency, globalCurrency))}</strong>
           </label>
           <input
