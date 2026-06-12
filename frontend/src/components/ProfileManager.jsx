@@ -12,6 +12,7 @@ export default function ProfileManager({
   onSave,
   onDelete,
   onSelect,
+  t,
 }) {
   if (!isOpen || !draft) {
     return null;
@@ -24,15 +25,15 @@ export default function ProfileManager({
       <section className="modal-panel profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
         <div className="modal-header">
           <div>
-            <span className="eyebrow">Profiles</span>
-            <h2 id="profile-modal-title">Manage profiles</h2>
+            <span className="eyebrow">{t.profilesEyebrow}</span>
+            <h2 id="profile-modal-title">{t.manageProfiles}</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close profile manager">
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t.closeProfileManager}>
             x
           </button>
         </div>
 
-        <div className="profile-list" aria-label="Saved profiles">
+        <div className="profile-list" aria-label={t.savedProfiles}>
           {profiles.map((profile) => (
             <button
               type="button"
@@ -42,7 +43,7 @@ export default function ProfileManager({
             >
               <strong>{profile.name}</strong>
               <small>
-                Gross {formatCurrency(profile.form.grossSalary)} · Net {formatCurrency(profile.form.bankNet)}
+                {t.profileSalaries(formatCurrency(profile.form.grossSalary), formatCurrency(profile.form.bankNet))}
               </small>
             </button>
           ))}
@@ -50,16 +51,16 @@ export default function ProfileManager({
 
         <div className="form-grid profile-form-grid">
           <label htmlFor="profileName" className="span-2">
-            Profile name
+            {t.profileName}
             <input
               id="profileName"
               value={draft.name}
               onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
-              placeholder={activeProfile?.name || 'New profile'}
+              placeholder={activeProfile?.name || t.newProfile}
             />
           </label>
           <label htmlFor="profileGrossSalary">
-            Gross salary
+            {t.grossSalary}
             <input
               id="profileGrossSalary"
               type="number"
@@ -74,7 +75,7 @@ export default function ProfileManager({
             />
           </label>
           <label htmlFor="profileBankNet">
-            Bank net
+            {t.bankNet}
             <input
               id="profileBankNet"
               type="number"
@@ -94,13 +95,13 @@ export default function ProfileManager({
 
         <div className="modal-actions">
           <button type="button" onClick={onSave} disabled={Boolean(error) || !activeProfile}>
-            Save changes
+            {t.saveChanges}
           </button>
           <button type="button" className="secondary" onClick={onCreate} disabled={Boolean(error)}>
-            Create new
+            {t.createNew}
           </button>
           <button type="button" className="danger" onClick={onDelete} disabled={profiles.length < 2}>
-            Delete
+            {t.deleteLabel}
           </button>
         </div>
       </section>

@@ -413,6 +413,10 @@ button:disabled {
   background: linear-gradient(90deg, var(--blue) 0 var(--value), var(--line) var(--value) 100%);
 }
 
+[dir='rtl'] .slider-row input[type="range"]::-webkit-slider-runnable-track {
+  background: linear-gradient(270deg, var(--blue) 0 var(--value), var(--line) var(--value) 100%);
+}
+
 .slider-row input[type="range"]::-webkit-slider-thumb {
   width: 20px;
   height: 20px;
@@ -703,7 +707,7 @@ svg {
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 86%, transparent);
   color: var(--ink);
-  text-align: left;
+  text-align: start;
   box-shadow: var(--shadow);
 }
 
@@ -787,7 +791,7 @@ svg {
   border-radius: 8px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--soft) 98%, transparent), color-mix(in srgb, var(--surface) 98%, transparent));
   color: var(--ink);
-  text-align: left;
+  text-align: start;
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
 }
 
@@ -897,7 +901,7 @@ svg {
   padding: 0;
   background: transparent;
   color: var(--ink);
-  text-align: left;
+  text-align: start;
   box-shadow: none;
 }
 
@@ -1068,7 +1072,7 @@ svg {
   border-radius: 7px;
   background: var(--soft-2);
   color: var(--ink);
-  text-align: left;
+  text-align: start;
   box-shadow: none;
   font-weight: 850;
 }
@@ -1225,11 +1229,16 @@ svg {
 }
 
 /* === Theme toggle === */
-.theme-toggle {
+.toggle-cluster {
   position: fixed;
   top: 14px;
-  right: 16px;
+  inset-inline-end: 16px;
   z-index: 60;
+  display: flex;
+  gap: 8px;
+}
+
+.theme-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1245,6 +1254,11 @@ svg {
   font-weight: 700;
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
+}
+
+.lang-toggle {
+  padding: 0 14px;
+  font-weight: 800;
 }
 
 .theme-toggle:hover {
@@ -1288,6 +1302,97 @@ svg stop {
 
 .axis-label {
   fill: var(--muted);
+}
+
+/* === Chart mode toggle + Monte Carlo legend === */
+.chart-title-row {
+  align-items: center;
+}
+
+.chart-mode-toggle {
+  display: inline-flex;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+
+.chart-mode {
+  width: auto;
+  height: 30px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--soft-2);
+  color: var(--muted);
+  box-shadow: none;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.chart-mode:hover {
+  background: var(--soft);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.chart-mode.active {
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--ink);
+}
+
+.chart-legend {
+  margin-top: 10px;
+}
+
+.mc-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.legend-item::before {
+  content: '';
+  width: 14px;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.legend-item.optimistic::before {
+  background: var(--green);
+  opacity: 0.7;
+}
+
+.legend-item.median::before {
+  background: var(--green);
+}
+
+.legend-item.pessimistic::before {
+  background: var(--rose);
+  opacity: 0.7;
+}
+
+.legend-item.fixed::before {
+  background: var(--accent);
+}
+
+/* SVG charts stay left-to-right even in RTL */
+.chart-frame svg {
+  direction: ltr;
 }
 
 /* === Redesign refinements === */

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_ALLOCATION, calculateClientSide, clampYears, formatCurrency, projectRecurringInvestment } from './calculations';
+import { DEFAULT_ALLOCATION, calculateClientSide, clampYears, formatCurrency, projectRecurringInvestment, simulateWealthProjection } from './calculations';
+import { getTranslations } from './i18n';
 import CurrencySelector, { convertCurrency } from './components/CurrencySelector.jsx';
 import GoalFormModal from './components/GoalFormModal.jsx';
 import GoalDetails from './components/GoalDetails.jsx';
@@ -9,10 +10,10 @@ import Home from './Home.jsx';
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3001';
 
 const bucketLabels = [
-  ['fixedCosts', 'Fixed Costs', 'costs'],
-  ['savingsGoals', 'Savings Goals', 'savings'],
-  ['activeInvestments', 'Active Investments', 'investments'],
-  ['guiltFreeSpending', 'Guilt-Free Spending', 'spending'],
+  ['fixedCosts', 'costs'],
+  ['savingsGoals', 'savings'],
+  ['activeInvestments', 'investments'],
+  ['guiltFreeSpending', 'spending'],
 ];
 
 const scenarios = [
@@ -109,7 +110,7 @@ function getMonthsLeft(goal) {
   return goal.monthlyContribution > 0 ? Math.ceil(remaining / goal.monthlyContribution) : Infinity;
 }
 
-function validateForm(form, goalTarget, allocation) {
+function validateForm(form, goalTarget, allocation, t) {
   const errors = [];
   const grossSalary = parsePositiveField(form.grossSalary);
   const bankNet = parsePositiveField(form.bankNet);
@@ -118,76 +119,83 @@ function validateForm(form, goalTarget, allocation) {
   const allocationTotal = Object.values(allocation).reduce((sum, value) => sum + parsePositiveField(value), 0);
 
   if (!form.name.trim()) {
-    errors.push('Name is required.');
+    errors.push(t.errNameRequired);
   }
 
   if (grossSalary <= 0) {
-    errors.push('Gross salary must be greater than 0.');
+    errors.push(t.errGrossPositive);
   }
 
   if (grossSalary > 1000000) {
-    errors.push('Gross salary looks too high for a monthly salary.');
+    errors.push(t.errGrossTooHigh);
   }
 
   if (bankNet <= 0) {
-    errors.push('Bank net must be greater than 0.');
+    errors.push(t.errNetPositive);
   }
 
   if (grossSalary > 0 && bankNet > grossSalary) {
-    errors.push('Bank net cannot be higher than gross salary.');
+    errors.push(t.errNetAboveGross);
   }
 
   if (!Number.isInteger(years) || years < 1 || years > 15) {
-    errors.push('Projection years must be a whole number between 1 and 15.');
+    errors.push(t.errYearsRange);
   }
 
   if (goal <= 0) {
-    errors.push('Savings goal must be greater than 0.');
+    errors.push(t.errGoalPositive);
   }
 
   if (goal > 100000000) {
-    errors.push('Savings goal is too high for this planner.');
+    errors.push(t.errGoalTooHigh);
   }
 
   Object.entries(allocation).forEach(([key, value]) => {
     const percent = parsePositiveField(value);
     if (percent < 0 || percent > 100) {
-      errors.push(`${key} percentage must be between 0 and 100.`);
+      errors.push(t.errBucketRange(t.buckets[key] || key));
     }
   });
 
   if (allocationTotal > 100) {
-    errors.push('Allocation percentages cannot add up to more than 100%.');
+    errors.push(t.errAllocationTotal);
   }
 
   if (parsePositiveField(allocation.activeInvestments) <= 0) {
-    errors.push('Active investments percentage must be greater than 0.');
+    errors.push(t.errInvestPositive);
   }
 
   return errors;
 }
 
-function ProjectionChart({ projection, currency }) {
+function ProjectionChart({ projection, band, currency, t }) {
   const width = 720;
   const height = 300;
   const pad = { top: 18, right: 20, bottom: 34, left: 72 };
+  const isMonteCarlo = Boolean(band);
   const values = projection.map((point) => point.value);
-  const maxValue = Math.max(...values, 1);
+  const bandValues = isMonteCarlo ? band.map((point) => point.p90) : [];
+  const maxValue = Math.max(...values, ...bandValues, 1);
   const xStep = projection.length > 1
     ? (width - pad.left - pad.right) / (projection.length - 1)
     : 0;
   const yScale = (height - pad.top - pad.bottom) / maxValue;
-  const points = projection.map((point, index) => {
-    const x = pad.left + index * xStep;
-    const y = height - pad.bottom - point.value * yScale;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
+  const xAt = (index) => pad.left + index * xStep;
+  const yAt = (value) => height - pad.bottom - value * yScale;
+  const toPoints = (series) => series
+    .map((value, index) => `${xAt(index).toFixed(1)},${yAt(value).toFixed(1)}`)
+    .join(' ');
+  const points = toPoints(values);
+  const bandPolygon = isMonteCarlo
+    ? `${toPoints(band.map((point) => point.p90))} ${toPoints(band.map((point) => point.p10)).split(' ').reverse().join(' ')}`
+    : '';
+  const medianPoints = isMonteCarlo ? toPoints(band.map((point) => point.p50)) : '';
   const visibleYearLabels = projection.filter(
     (_, index) => index === 0 || index === projection.length - 1 || (index + 1) % 5 === 0,
   );
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Investment projection chart">
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t.chartAriaLabel}>
       <defs>
         <linearGradient id="projectionFill" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.24" />
@@ -196,7 +204,7 @@ function ProjectionChart({ projection, currency }) {
       </defs>
       <rect x="0" y="0" width={width} height={height} fill="transparent" />
       {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-        const y = height - pad.bottom - maxValue * ratio * yScale;
+        const y = yAt(maxValue * ratio);
         return (
           <g key={ratio}>
             <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="#26364f" strokeDasharray="4 6" />
@@ -204,23 +212,32 @@ function ProjectionChart({ projection, currency }) {
           </g>
         );
       })}
-      <polygon
-        points={`${pad.left},${height - pad.bottom} ${points} ${width - pad.right},${height - pad.bottom}`}
-        fill="url(#projectionFill)"
-      />
-      <polyline points={points} fill="none" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      {projection.map((point, index) => {
-        const x = pad.left + index * xStep;
-        const y = height - pad.bottom - point.value * yScale;
-        return <circle key={point.year} cx={x} cy={y} r="3.5" fill="#0f172a" stroke="#38bdf8" strokeWidth="3" />;
-      })}
+      {isMonteCarlo ? (
+        <>
+          <polygon points={bandPolygon} fill="#34d399" fillOpacity="0.14" className="mc-band" />
+          <polyline points={toPoints(band.map((point) => point.p90))} fill="none" stroke="#34d399" strokeWidth="2" strokeOpacity="0.7" />
+          <polyline points={toPoints(band.map((point) => point.p10))} fill="none" stroke="#fb7185" strokeWidth="2" strokeOpacity="0.7" />
+          <polyline points={medianPoints} fill="none" stroke="#34d399" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points={points} fill="none" stroke="#38bdf8" strokeWidth="2" strokeDasharray="5 6" strokeOpacity="0.85" />
+        </>
+      ) : (
+        <>
+          <polygon
+            points={`${pad.left},${height - pad.bottom} ${points} ${width - pad.right},${height - pad.bottom}`}
+            fill="url(#projectionFill)"
+          />
+          <polyline points={points} fill="none" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          {projection.map((point, index) => (
+            <circle key={point.year} cx={xAt(index)} cy={yAt(point.value)} r="3.5" fill="#0f172a" stroke="#38bdf8" strokeWidth="3" />
+          ))}
+        </>
+      )}
       {visibleYearLabels.map((point, index) => {
         const originalIndex = projection.findIndex((item) => item.year === point.year);
-        const x = pad.left + originalIndex * xStep;
         const anchor = index === visibleYearLabels.length - 1 ? 'end' : 'middle';
         return (
-          <text key={point.year} className="axis-label" x={x} y={height - 10} textAnchor={anchor}>
-            Y{point.year}
+          <text key={point.year} className="axis-label" x={xAt(originalIndex)} y={height - 10} textAnchor={anchor}>
+            {t.yearShort(point.year)}
           </text>
         );
       })}
@@ -240,7 +257,15 @@ export default function App() {
   const [globalCurrency, setGlobalCurrency] = useState('ILS');
   const [result, setResult] = useState(() => calculateClientSide(10000, 6800, 15, DEFAULT_ALLOCATION));
   const [message, setMessage] = useState('');
-  const [apiStatus, setApiStatus] = useState('Backend: checking...');
+  const [apiStatusKey, setApiStatusKey] = useState('checking');
+  const [chartMode, setChartMode] = useState('fixed');
+  const [lang, setLang] = useState(() => {
+    try {
+      return window.localStorage.getItem('ii-lang') || 'en';
+    } catch {
+      return 'en';
+    }
+  });
   const [selectedGoalId, setSelectedGoalId] = useState('car');
   const [sortBy, setSortBy] = useState('progress');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -258,6 +283,7 @@ export default function App() {
     }
   });
 
+  const t = getTranslations(lang);
   const activeProfile = profiles.find((profile) => profile.id === activeProfileId) || profiles[0];
   const { form, allocation, goalTarget, goals } = activeProfile;
   const selectedGoal = goals.find((goal) => goal.id === selectedGoalId) || goals[0];
@@ -281,12 +307,22 @@ export default function App() {
     })),
   }), [displayResult, globalCurrency]);
 
+  const monteCarloBand = useMemo(() => {
+    const simulated = simulateWealthProjection(displayResult.activeInvestments, form.years);
+    return simulated.map((point) => ({
+      ...point,
+      p10: convertCurrency(point.p10, 'ILS', globalCurrency),
+      p50: convertCurrency(point.p50, 'ILS', globalCurrency),
+      p90: convertCurrency(point.p90, 'ILS', globalCurrency),
+    }));
+  }, [displayResult.activeInvestments, form.years, globalCurrency]);
+
   const endingProjectionValue = convertedResult.wealthProjection.at(-1)?.value || 0;
   const yearlyInvestment = convertedResult.activeInvestments * 12;
-  const statusClass = apiStatus.includes('connected') ? 'status connected' : 'status';
+  const statusClass = apiStatusKey === 'connected' ? 'status connected' : 'status';
   const goalMonths = monthsToGoal(displayResult.savingsGoals, goalTarget);
   const allocationTotal = Object.values(allocation).reduce((sum, value) => sum + parsePositiveField(value), 0);
-  const validationErrors = validateForm(form, goalTarget, allocation);
+  const validationErrors = validateForm(form, goalTarget, allocation, t);
   const hasValidationErrors = validationErrors.length > 0;
   const grossSalary = parsePositiveField(form.grossSalary);
   const bankNet = parsePositiveField(form.bankNet);
@@ -324,20 +360,20 @@ export default function App() {
     });
   const insights = [
     netRatio > 1
-      ? ['warning', 'Bank net is higher than gross salary. Fix this before saving.']
+      ? ['warning', t.insightNetHigh]
       : netRatio > 0.85
-        ? ['warning', 'Bank net is unusually close to gross salary. Double-check the numbers.']
+        ? ['warning', t.insightNetClose]
         : netRatio < 0.45
-          ? ['warning', 'Bank net is low compared with gross salary. Taxes or deductions may be very high.']
-          : ['good', 'Bank net looks reasonable compared with gross salary.'],
+          ? ['warning', t.insightNetLow]
+          : ['good', t.insightNetOk],
     goalMonths
       ? goalMonths > 120
-        ? ['warning', `This goal may take about ${goalMonths} months at the current savings rate.`]
-        : ['good', `At the current savings rate, the goal can be reached in about ${goalMonths} months.`]
-      : ['warning', 'Add a savings goal to estimate the timeline.'],
+        ? ['warning', t.insightGoalLong(goalMonths)]
+        : ['good', t.insightGoalOk(goalMonths)]
+      : ['warning', t.insightGoalMissing],
     portfolioProgress >= 50
-      ? ['good', `Goal portfolio is ${portfolioProgress}% funded.`]
-      : ['warning', `Goal portfolio is ${portfolioProgress}% funded. Monthly funding is ${formatMoney(portfolioTotals.monthly)}.`],
+      ? ['good', t.insightPortfolioGood(portfolioProgress)]
+      : ['warning', t.insightPortfolioWarn(portfolioProgress, formatMoney(portfolioTotals.monthly))],
   ];
 
   useEffect(() => {
@@ -346,8 +382,8 @@ export default function App() {
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/health`)
-      .then((response) => setApiStatus(response.ok ? 'Backend: connected' : 'Backend: unavailable'))
-      .catch(() => setApiStatus('Backend: unavailable'));
+      .then((response) => setApiStatusKey(response.ok ? 'connected' : 'unavailable'))
+      .catch(() => setApiStatusKey('unavailable'));
 
     fetch(`${API_BASE_URL}/calculate/profiles`)
       .then((response) => (response.ok ? response.json() : []))
@@ -385,6 +421,16 @@ export default function App() {
       // Persisting the theme is best-effort.
     }
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = getTranslations(lang).dir;
+    try {
+      window.localStorage.setItem('ii-lang', lang);
+    } catch {
+      // Persisting the language is best-effort.
+    }
+  }, [lang]);
 
   function updateActiveProfile(updater) {
     setMessage('');
@@ -447,7 +493,7 @@ export default function App() {
 
   function saveGoalDraft() {
     if (!goalDraft?.name?.trim() || goalDraft.targetAmount <= 0) {
-      setMessage('Goal name and target amount are required.');
+      setMessage(t.goalNameTargetRequired);
       return;
     }
 
@@ -546,7 +592,7 @@ export default function App() {
 
     const loaded = await loadExistingProfileByName(form.name);
     if (loaded) {
-      setMessage(`Profile "${form.name.trim()}" already exists - loaded the saved version from the server.`);
+      setMessage(t.duplicateLoaded(form.name.trim()));
     }
     return loaded;
   }
@@ -565,7 +611,7 @@ export default function App() {
       setMessage('');
     } catch (err) {
       setResult(liveResult);
-      setMessage(`${err.message}. Showing local calculation.`);
+      setMessage(t.showingLocal(err.message));
     }
   }
 
@@ -578,7 +624,7 @@ export default function App() {
     try {
       const data = await postJson('/calculate/profiles', requestPayload());
       setResult(data.calculation);
-      setMessage('Profile saved.');
+      setMessage(t.profileSaved);
     } catch (err) {
       if (!(await recoverFromDuplicateName(err))) {
         setMessage(err.message);
@@ -597,11 +643,11 @@ export default function App() {
     try {
       const data = await postJson('/calculate/profiles', requestPayload());
       setResult(data.calculation || liveResult);
-      setMessage('Profile saved.');
+      setMessage(t.profileSaved);
     } catch (err) {
       setResult(liveResult);
       if (!(await recoverFromDuplicateName(err))) {
-        setMessage(`${err.message}. Continuing with local profile.`);
+        setMessage(t.continuingLocal(err.message));
       }
     }
 
@@ -617,19 +663,19 @@ export default function App() {
     const bankNet = parsePositiveField(draft.bankNet);
 
     if (!draft.name.trim()) {
-      return 'Profile name is required.';
+      return t.errProfileNameRequired;
     }
     if (grossSalary <= 0) {
-      return 'Gross salary must be greater than 0.';
+      return t.errGrossPositive;
     }
     if (grossSalary > 1000000) {
-      return 'Gross salary looks too high for a monthly salary.';
+      return t.errGrossTooHigh;
     }
     if (bankNet <= 0) {
-      return 'Bank net must be greater than 0.';
+      return t.errNetPositive;
     }
     if (bankNet > grossSalary) {
-      return 'Bank net cannot be higher than gross salary.';
+      return t.errNetAboveGross;
     }
     return '';
   }
@@ -708,23 +754,35 @@ export default function App() {
 
   return (
     <main>
-      <button
-        type="button"
-        className="theme-toggle"
-        onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        <span className="theme-toggle-icon" aria-hidden="true" />
-        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-      </button>
+      <div className="toggle-cluster">
+        <button
+          type="button"
+          className="theme-toggle lang-toggle"
+          onClick={() => setLang((current) => (current === 'en' ? 'he' : 'en'))}
+          aria-label={t.langToggle}
+        >
+          {t.langToggle}
+        </button>
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+          aria-label={theme === 'dark' ? t.switchToLight : t.switchToDark}
+        >
+          <span className="theme-toggle-icon" aria-hidden="true" />
+          {theme === 'dark' ? t.lightMode : t.darkMode}
+        </button>
+      </div>
       {activeView === 'home' ? (
         <Home
           form={form}
           message={message}
+          successMessage={t.profileSaved}
           validationErrors={validationErrors}
           hasValidationErrors={hasValidationErrors}
           onFieldChange={updateField}
           onSaveProfile={saveProfileAndContinue}
+          t={t}
         />
       ) : (
         <>
@@ -735,15 +793,15 @@ export default function App() {
               </span>
               <div className="headline">
                 <h1>intelligent investor</h1>
-                <p>Financial goals, portfolio progress, and multi-currency planning.</p>
+                <p>{t.appSubtitle}</p>
               </div>
             </div>
-            <p id="api-status" className={statusClass}>{apiStatus}</p>
+            <p id="api-status" className={statusClass}>{t.apiStatus[apiStatusKey]}</p>
           </header>
 
           <div className="top-toolbar">
             <label className="toolbar-field" htmlFor="profile">
-              <span>Profile</span>
+              <span>{t.profile}</span>
               <select id="profile" value={activeProfileId} onChange={(event) => setActiveProfileId(event.target.value)}>
                 {profiles.map((profile) => (
                   <option key={profile.id} value={profile.id}>{profile.name}</option>
@@ -754,12 +812,12 @@ export default function App() {
               type="button"
               className="icon-button manage-button"
               onClick={openProfileManager}
-              aria-label="Manage profiles"
-              title="Manage profiles"
+              aria-label={t.manageProfiles}
+              title={t.manageProfiles}
             >
               *
             </button>
-            <CurrencySelector value={globalCurrency} onChange={setGlobalCurrency} />
+            <CurrencySelector value={globalCurrency} onChange={setGlobalCurrency} label={t.currency} />
           </div>
 
           <nav className="view-switcher" aria-label="Primary views">
@@ -768,16 +826,16 @@ export default function App() {
               className={activeView === 'budget' ? 'view-card active' : 'view-card'}
               onClick={() => setActiveView('budget')}
             >
-              <strong>Budget Allocation</strong>
-              <span>Review income buckets and investment projections.</span>
+              <strong>{t.budgetView}</strong>
+              <span>{t.budgetViewDesc}</span>
             </button>
             <button
               type="button"
               className={activeView === 'goals' ? 'view-card active' : 'view-card'}
               onClick={() => setActiveView('goals')}
             >
-              <strong>Financial Goals</strong>
-              <span>Track, sort, and update your goal portfolio.</span>
+              <strong>{t.goalsView}</strong>
+              <span>{t.goalsViewDesc}</span>
             </button>
           </nav>
 
@@ -786,13 +844,13 @@ export default function App() {
               <form className="panel" onSubmit={calculate}>
                 <div className="section-title">
                   <span>02</span>
-                  <h2>Budget allocation</h2>
+                  <h2>{t.budgetAllocation}</h2>
                 </div>
 
-                <label htmlFor="years">Projection years</label>
+                <label htmlFor="years">{t.projectionYears}</label>
                 <input id="years" name="years" type="number" min="1" max="15" step="1" value={form.years} onChange={updateField} />
 
-                <label htmlFor="goalTarget">Savings goal</label>
+                <label htmlFor="goalTarget">{t.savingsGoal}</label>
                 <input
                   id="goalTarget"
                   name="goalTarget"
@@ -809,18 +867,18 @@ export default function App() {
 
                 <div className="allocation-controls">
                   <div className="allocation-header">
-                    <h3>Bucket percentages</h3>
+                    <h3>{t.bucketPercentages}</h3>
                     <strong>{allocationTotal}%</strong>
                   </div>
-                  {bucketLabels.map(([key, label]) => (
+                  {bucketLabels.map(([key]) => (
                     <div className="slider-row" key={key}>
                       <label htmlFor={`${key}Percent`}>
-                        <span>{label}</span>
+                        <span>{t.buckets[key]}</span>
                         <strong>{allocation[key]}%</strong>
                       </label>
                       <input
                         id={`${key}Percent`}
-                        aria-label={`${label} percentage`}
+                        aria-label={`${t.buckets[key]} percentage`}
                         name={key}
                         type="range"
                         min="0"
@@ -834,14 +892,14 @@ export default function App() {
                   ))}
                 </div>
 
-                <button type="submit" disabled={hasValidationErrors}>Calculate</button>
+                <button type="submit" disabled={hasValidationErrors}>{t.calculate}</button>
                 <div className="actions">
-                  <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>Save</button>
-                  <button type="button" className="secondary" onClick={exportPdf}>Export PDF</button>
+                  <button type="button" className="secondary" onClick={saveProfile} disabled={hasValidationErrors}>{t.save}</button>
+                  <button type="button" className="secondary" onClick={exportPdf}>{t.exportPdf}</button>
                 </div>
-                <div className={message === 'Profile saved.' ? 'notice success' : 'notice'} role="status">{message}</div>
+                <div className={message === t.profileSaved ? 'notice success' : 'notice'} role="status">{message}</div>
                 {hasValidationErrors && (
-                  <div className="validation-list" aria-label="Validation errors">
+                  <div className="validation-list" aria-label={t.validationErrors}>
                     {validationErrors.map((error) => (
                       <p key={error}>{error}</p>
                     ))}
@@ -852,28 +910,28 @@ export default function App() {
               <section>
                 <div className="summary-strip" aria-label="Financial summary">
                   <div>
-                    <span>Monthly bank net</span>
+                    <span>{t.monthlyBankNet}</span>
                     <strong>{formatMoney(convertedResult.bankNet)}</strong>
                   </div>
                   <div>
-                    <span>Monthly investing</span>
+                    <span>{t.monthlyInvesting}</span>
                     <strong>{formatMoney(convertedResult.activeInvestments)}</strong>
                   </div>
                   <div>
-                    <span>Annual investing</span>
+                    <span>{t.annualInvesting}</span>
                     <strong>{formatMoney(yearlyInvestment)}</strong>
                   </div>
                   <div>
-                    <span>Projected value</span>
+                    <span>{t.projectedValue}</span>
                     <strong>{formatMoney(endingProjectionValue)}</strong>
                   </div>
                 </div>
 
                 <div className="buckets" data-testid="bucket-grid">
-                  {bucketLabels.map(([key, label, tone]) => (
+                  {bucketLabels.map(([key, tone]) => (
                     <article className={`bucket ${tone}`} key={key}>
                       <div className="bucket-top">
-                        <strong>{label}</strong>
+                        <strong>{t.buckets[key]}</strong>
                         <small>{parsePositiveField(allocation[key])}%</small>
                       </div>
                       <span data-testid={key}>{formatMoney(convertedResult[key])}</span>
@@ -885,20 +943,20 @@ export default function App() {
                   <section className="feature-card goal-card">
                     <div className="section-title compact">
                       <span>03</span>
-                      <h2>Savings goal</h2>
+                      <h2>{t.savingsGoal}</h2>
                     </div>
                     <strong>{formatMoney(convertCurrency(goalTarget, 'ILS', globalCurrency))}</strong>
                     <p>
                       {goalMonths
-                        ? `${goalMonths} months at ${formatMoney(convertedResult.savingsGoals)} per month.`
-                        : 'Set a goal to calculate the timeline.'}
+                        ? t.goalMonthsAt(goalMonths, formatMoney(convertedResult.savingsGoals))
+                        : t.goalSetTimeline}
                     </p>
                   </section>
 
                   <section className="feature-card insights-card">
                     <div className="section-title compact">
                       <span>04</span>
-                      <h2>Smart insights</h2>
+                      <h2>{t.smartInsights}</h2>
                     </div>
                     <div className="insight-list">
                       {insights.map(([tone, text]) => (
@@ -911,31 +969,59 @@ export default function App() {
                 <section className="scenario-panel">
                   <div className="section-title compact">
                     <span>05</span>
-                    <h2>Scenario comparison</h2>
+                    <h2>{t.scenarioComparison}</h2>
                   </div>
                   <div className="scenario-grid">
                     {scenarioResults.map((scenario) => (
                       <article className="scenario" key={scenario.label}>
-                        <strong>{scenario.label}</strong>
+                        <strong>{t.scenarios[scenario.label]}</strong>
                         <span>{formatMoney(scenario.endingValue)}</span>
-                        <p>
-                          {(scenario.investmentRate * 100).toFixed(0)}% invested,
-                          {' '}
-                          {(scenario.annualReturn * 100).toFixed(0)}% return
-                        </p>
+                        <p>{t.scenarioLine((scenario.investmentRate * 100).toFixed(0), (scenario.annualReturn * 100).toFixed(0))}</p>
                       </article>
                     ))}
                   </div>
                 </section>
 
                 <div className="chart-panel">
-                  <div className="section-title">
+                  <div className="section-title chart-title-row">
                     <span>06</span>
-                    <h2>{clampYears(form.years)}-year investment projection</h2>
+                    <h2>{t.chartTitle(clampYears(form.years))}</h2>
+                    <div className="chart-mode-toggle" role="group" aria-label={t.chartAriaLabel}>
+                      <button
+                        type="button"
+                        className={chartMode === 'fixed' ? 'chart-mode active' : 'chart-mode'}
+                        onClick={() => setChartMode('fixed')}
+                      >
+                        {t.chartModeFixed}
+                      </button>
+                      <button
+                        type="button"
+                        className={chartMode === 'montecarlo' ? 'chart-mode active' : 'chart-mode'}
+                        onClick={() => setChartMode('montecarlo')}
+                      >
+                        {t.chartModeMonteCarlo}
+                      </button>
+                    </div>
                   </div>
                   <div className="chart-frame">
-                    <ProjectionChart projection={convertedResult.wealthProjection} currency={globalCurrency} />
+                    <ProjectionChart
+                      projection={convertedResult.wealthProjection}
+                      band={chartMode === 'montecarlo' ? monteCarloBand : null}
+                      currency={globalCurrency}
+                      t={t}
+                    />
                   </div>
+                  {chartMode === 'montecarlo' && (
+                    <div className="chart-legend" data-testid="mc-legend">
+                      <p className="mc-hint">{t.monteCarloHint}</p>
+                      <div className="legend-items">
+                        <span className="legend-item optimistic">{t.legendOptimistic}</span>
+                        <span className="legend-item median">{t.legendMedian}</span>
+                        <span className="legend-item pessimistic">{t.legendPessimistic}</span>
+                        <span className="legend-item fixed">{t.legendFixed}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
             </div>
@@ -945,45 +1031,45 @@ export default function App() {
             <section>
               <div className="summary-strip portfolio-summary" aria-label="Portfolio summary">
                 <div>
-                  <span>Total target</span>
+                  <span>{t.totalTarget}</span>
                   <strong>{formatMoney(portfolioTotals.target)}</strong>
                 </div>
                 <div>
-                  <span>Currently saved</span>
+                  <span>{t.currentlySaved}</span>
                   <strong>{formatMoney(portfolioTotals.saved)}</strong>
                 </div>
                 <div>
-                  <span>Required monthly</span>
+                  <span>{t.requiredMonthly}</span>
                   <strong>{formatMoney(portfolioTotals.monthly)}</strong>
                 </div>
                 <div>
-                  <span>Goal progress</span>
+                  <span>{t.goalProgress}</span>
                   <strong>{portfolioProgress}%</strong>
                 </div>
               </div>
 
               <div className="filter-bar" aria-label="Goal filters">
                 <label className="toolbar-field" htmlFor="sortBy">
-                  <span>Sort by</span>
+                  <span>{t.sortBy}</span>
                   <select id="sortBy" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                    <option value="progress">Progress</option>
-                    <option value="amount">Target amount</option>
-                    <option value="monthly">Required monthly</option>
+                    <option value="progress">{t.sortProgress}</option>
+                    <option value="amount">{t.sortAmount}</option>
+                    <option value="monthly">{t.sortMonthly}</option>
                   </select>
                 </label>
                 <label className="toolbar-field" htmlFor="statusFilter">
-                  <span>Status</span>
+                  <span>{t.status}</span>
                   <select id="statusFilter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                    {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                    {statuses.map((status) => <option key={status} value={status}>{t.statusNames[status]}</option>)}
                   </select>
                 </label>
                 <label className="toolbar-field" htmlFor="categoryFilter">
-                  <span>Category</span>
+                  <span>{t.category}</span>
                   <select id="categoryFilter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-                    {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                    {categories.map((category) => <option key={category} value={category}>{t.categoryNames[category]}</option>)}
                   </select>
                 </label>
-                <button type="button" className="create-goal-button" onClick={openCreateGoal}>Create goal</button>
+                <button type="button" className="create-goal-button" onClick={openCreateGoal}>{t.createGoal}</button>
               </div>
 
               <div className="goal-grid">
@@ -1001,22 +1087,22 @@ export default function App() {
                       key={goal.id}
                     >
                       <div className="goal-tile-header">
-                        <span className={`badge ${status === 'At risk' ? 'risk' : 'track'}`}>{status}</span>
-                        <div className="goal-actions" aria-label={`${goal.name} actions`}>
-                          <button type="button" className="icon-button mini" onClick={() => openEditGoal(goal)} aria-label={`Edit ${goal.name}`}>E</button>
-                          <button type="button" className="icon-button mini danger-icon" onClick={() => deleteGoal(goal.id)} aria-label={`Delete ${goal.name}`}>D</button>
+                        <span className={`badge ${status === 'At risk' ? 'risk' : 'track'}`}>{t.statusNames[status]}</span>
+                        <div className="goal-actions" aria-label={t.goalActions(goal.name)}>
+                          <button type="button" className="icon-button mini" onClick={() => openEditGoal(goal)} aria-label={t.editGoal(goal.name)}>E</button>
+                          <button type="button" className="icon-button mini danger-icon" onClick={() => deleteGoal(goal.id)} aria-label={t.deleteGoal(goal.name)}>D</button>
                         </div>
                       </div>
                       <button type="button" className="goal-card-body" onClick={() => setSelectedGoalId(goal.id)}>
                         <strong>{goal.name}</strong>
-                        <small>{goal.category}</small>
+                        <small>{t.categoryNames[goal.category] || goal.category}</small>
                       </button>
                       <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
                       <dl>
-                        <div><dt>Target amount</dt><dd>{formatMoney(target)}</dd></div>
-                        <div><dt>Currently saved</dt><dd>{formatMoney(saved)}</dd></div>
-                        <div><dt>Required monthly</dt><dd>{formatMoney(monthly)}</dd></div>
-                        <div><dt>Months remaining</dt><dd>{monthsLeft === Infinity ? 'n/a' : monthsLeft}</dd></div>
+                        <div><dt>{t.targetAmount}</dt><dd>{formatMoney(target)}</dd></div>
+                        <div><dt>{t.currentlySaved}</dt><dd>{formatMoney(saved)}</dd></div>
+                        <div><dt>{t.requiredMonthly}</dt><dd>{formatMoney(monthly)}</dd></div>
+                        <div><dt>{t.monthsRemaining}</dt><dd>{monthsLeft === Infinity ? t.notAvailable : monthsLeft}</dd></div>
                       </dl>
                     </article>
                   );
@@ -1029,6 +1115,7 @@ export default function App() {
                 formatMoney={formatMoney}
                 onContributionChange={(goalId, monthlyContribution) => updateGoal(goalId, { monthlyContribution })}
                 onCurrencyChange={(goalId, currency) => updateGoal(goalId, { currency })}
+                t={t}
               />
             </section>
           )}
@@ -1045,6 +1132,7 @@ export default function App() {
             onSave={saveManagedProfile}
             onDelete={deleteManagedProfile}
             onSelect={selectManagedProfile}
+            t={t}
           />
           <GoalFormModal
             isOpen={Boolean(goalDraft)}
@@ -1053,6 +1141,7 @@ export default function App() {
             onChange={setGoalDraft}
             onClose={closeGoalModal}
             onSubmit={saveGoalDraft}
+            t={t}
           />
         </>
       )}

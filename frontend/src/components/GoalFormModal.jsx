@@ -14,6 +14,7 @@ export default function GoalFormModal({
   onChange,
   onClose,
   onSubmit,
+  t,
 }) {
   if (!isOpen || !draft) {
     return null;
@@ -22,7 +23,7 @@ export default function GoalFormModal({
   function applyPreset(preset) {
     onChange({
       ...draft,
-      name: preset.name,
+      name: t.presetNames[preset.name] || preset.name,
       category: preset.category,
       accent: preset.accent,
     });
@@ -33,25 +34,25 @@ export default function GoalFormModal({
       <section className="modal-panel goal-modal" role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
         <div className="modal-header">
           <div>
-            <span className="eyebrow">Goals</span>
-            <h2 id="goal-modal-title">{mode === 'edit' ? 'Edit goal' : 'Create goal'}</h2>
+            <span className="eyebrow">{t.goalsEyebrow}</span>
+            <h2 id="goal-modal-title">{mode === 'edit' ? t.editGoalTitle : t.createGoalTitle}</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close goal form">
+          <button type="button" className="icon-button" onClick={onClose} aria-label={t.closeGoalForm}>
             x
           </button>
         </div>
 
-        <div className="preset-row" aria-label="Goal presets">
+        <div className="preset-row" aria-label={t.goalPresets}>
           {presets.map((preset) => (
             <button type="button" className="preset-button" key={preset.name} onClick={() => applyPreset(preset)}>
-              {preset.name}
+              {t.presetNames[preset.name] || preset.name}
             </button>
           ))}
         </div>
 
         <div className="form-grid">
           <label htmlFor="goalName">
-            Goal name
+            {t.goalName}
             <input
               id="goalName"
               value={draft.name}
@@ -59,20 +60,20 @@ export default function GoalFormModal({
             />
           </label>
           <label htmlFor="goalCategory">
-            Category
+            {t.category}
             <select
               id="goalCategory"
               value={draft.category}
               onChange={(event) => onChange({ ...draft, category: event.target.value })}
             >
-              <option value="Transport">Transport</option>
-              <option value="Housing">Housing</option>
-              <option value="Education">Education</option>
-              <option value="Lifestyle">Lifestyle</option>
+              <option value="Transport">{t.categoryNames.Transport}</option>
+              <option value="Housing">{t.categoryNames.Housing}</option>
+              <option value="Education">{t.categoryNames.Education}</option>
+              <option value="Lifestyle">{t.categoryNames.Lifestyle}</option>
             </select>
           </label>
           <label htmlFor="goalTargetAmount">
-            Target amount
+            {t.targetAmount}
             <input
               id="goalTargetAmount"
               type="number"
@@ -83,7 +84,7 @@ export default function GoalFormModal({
             />
           </label>
           <label htmlFor="goalCurrentAmount">
-            Currently saved
+            {t.currentlySaved}
             <input
               id="goalCurrentAmount"
               type="number"
@@ -94,7 +95,7 @@ export default function GoalFormModal({
             />
           </label>
           <label htmlFor="goalMonthlyAmount">
-            Required monthly
+            {t.requiredMonthly}
             <input
               id="goalMonthlyAmount"
               type="number"
@@ -105,7 +106,7 @@ export default function GoalFormModal({
             />
           </label>
           <label htmlFor="goalFormCurrency">
-            Currency
+            {t.currency}
             <select
               id="goalFormCurrency"
               value={draft.currency}
@@ -119,8 +120,8 @@ export default function GoalFormModal({
         </div>
 
         <div className="modal-actions">
-          <button type="button" onClick={onSubmit}>{mode === 'edit' ? 'Save changes' : 'Create goal'}</button>
-          <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+          <button type="button" onClick={onSubmit}>{mode === 'edit' ? t.saveChanges : t.createGoal}</button>
+          <button type="button" className="secondary" onClick={onClose}>{t.cancel}</button>
         </div>
       </section>
     </div>

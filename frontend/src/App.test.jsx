@@ -122,6 +122,38 @@ describe('App', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
   });
 
+  test('language toggle switches the UI to Hebrew with RTL direction', () => {
+    window.localStorage.removeItem('ii-lang');
+    render(<App />);
+
+    expect(screen.getByText('Own Your Finances. Shape Your Future.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'עברית' }));
+
+    expect(document.documentElement.dir).toBe('rtl');
+    expect(document.documentElement.lang).toBe('he');
+    expect(screen.getByText('קחו שליטה על הכסף. עצבו את העתיד.')).toBeInTheDocument();
+    expect(screen.getByLabelText('שכר ברוטו')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'English' }));
+    expect(document.documentElement.dir).toBe('ltr');
+  });
+
+  test('Monte Carlo toggle shows the simulation legend on the chart', async () => {
+    window.localStorage.removeItem('ii-lang');
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /save profile/i }));
+    await screen.findByTestId('bucket-grid');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Monte Carlo' }));
+    expect(screen.getByTestId('mc-legend')).toBeInTheDocument();
+    expect(screen.getByText(/90th percentile/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fixed 7%' }));
+    expect(screen.queryByTestId('mc-legend')).not.toBeInTheDocument();
+  });
+
   test('shows validation when bank net is higher than gross salary', () => {
     render(<App />);
 
