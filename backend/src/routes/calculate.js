@@ -316,6 +316,7 @@ router.get('/profiles/:id', async (req, res) => {
 router.patch('/profiles/:id', async (req, res) => {
   const id = Number(req.params.id);
   const trimmedName = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+  const { grossSalary, bankNet } = req.body;
 
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'profile id must be a positive integer' });
@@ -325,13 +326,38 @@ router.patch('/profiles/:id', async (req, res) => {
     return res.status(400).json({ error: 'name is required' });
   }
 
+  let grossValue = null;
+  let bankNetValue = null;
+  if (grossSalary !== undefined || bankNet !== undefined) {
+    const grossResult = parsePositiveNumber(grossSalary, 'grossSalary');
+    if (grossResult.error) {
+      return res.status(400).json({ error: grossResult.error });
+    }
+
+    const bankNetResult = parsePositiveNumber(bankNet, 'bankNet');
+    if (bankNetResult.error) {
+      return res.status(400).json({ error: bankNetResult.error });
+    }
+
+    const salaryResult = validateSalaryRelationship(grossResult.value, bankNetResult.value);
+    if (salaryResult.error) {
+      return res.status(400).json({ error: salaryResult.error });
+    }
+
+    grossValue = grossResult.value;
+    bankNetValue = bankNetResult.value;
+  }
+
   try {
     const result = await pool.query(
       `UPDATE financial_profiles
-       SET name = $1, updated_at = NOW()
-       WHERE id = $2
+       SET name = $1,
+           gross_salary = COALESCE($2, gross_salary),
+           bank_net = COALESCE($3, bank_net),
+           updated_at = NOW()
+       WHERE id = $4
        RETURNING id, name, gross_salary, bank_net, created_at, updated_at`,
-      [trimmedName, id],
+      [trimmedName, grossValue, bankNetValue, id],
     );
 
     if (result.rowCount === 0) {
