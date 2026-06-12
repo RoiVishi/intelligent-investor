@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_ALLOCATION, calculateClientSide, clampYears, formatCurrency, projectRecurringInvestment, simulateWealthProjection } from './calculations';
 import { getTranslations } from './i18n';
+import AnimatedNumber from './components/AnimatedNumber.jsx';
 import CurrencySelector, { convertCurrency } from './components/CurrencySelector.jsx';
 import GoalFormModal from './components/GoalFormModal.jsx';
 import GoalDetails from './components/GoalDetails.jsx';
@@ -272,6 +273,7 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState(null);
+  const [profileServerError, setProfileServerError] = useState('');
   const [goalModalMode, setGoalModalMode] = useState('create');
   const [goalDraft, setGoalDraft] = useState(null);
   const [activeView, setActiveView] = useState('home');
@@ -536,19 +538,34 @@ export default function App() {
     };
   }
 
-  async function postJson(path, payload) {
+  async function sendJson(path, method, payload) {
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      method,
+      headers: payload ? { 'Content-Type': 'application/json' } : undefined,
+      body: payload ? JSON.stringify(payload) : undefined,
     });
-    const data = await response.json();
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       throw new Error(data.error || 'Request failed');
     }
 
     return data;
+  }
+
+  function postJson(path, payload) {
+    return sendJson(path, 'POST', payload);
+  }
+
+  function remoteIdOf(profile) {
+    return typeof profile?.id === 'string' && profile.id.startsWith('remote-')
+      ? profile.id.slice('remote-'.length)
+      : null;
   }
 
   async function loadExistingProfileByName(name) {
@@ -681,12 +698,18 @@ export default function App() {
   }
 
   function openProfileManager() {
+    setProfileServerError('');
     setProfileDraft({
       name: activeProfile.name,
       grossSalary: form.grossSalary,
       bankNet: form.bankNet,
     });
     setIsProfileManagerOpen(true);
+  }
+
+  function updateProfileDraft(draft) {
+    setProfileServerError('');
+    setProfileDraft(draft);
   }
 
   function selectManagedProfile(profileId) {
@@ -696,6 +719,7 @@ export default function App() {
     }
 
     setActiveProfileId(profileId);
+    setProfileServerError('');
     setProfileDraft({
       name: profile.name,
       grossSalary: profile.form.grossSalary,
@@ -703,49 +727,94 @@ export default function App() {
     });
   }
 
-  function createManagedProfile() {
+  function toServerError(err) {
+    return /already exists/i.test(err.message) ? t.errProfileExists : err.message;
+  }
+
+  function closeProfileManager() {
+    setProfileDraft(null);
+    setProfileServerError('');
+    setIsProfileManagerOpen(false);
+  }
+
+  async function createManagedProfile() {
     const name = profileDraft.name.trim();
-    const id = `local-${Date.now()}`;
-    setProfiles((current) => [...current, createProfile(id, name, {
-      form: {
-        ...form,
+    const grossSalary = Number(profileDraft.grossSalary);
+    const bankNet = Number(profileDraft.bankNet);
+    let id = `local-${Date.now()}`;
+
+    try {
+      const data = await postJson('/calculate/profiles', {
         name,
-        grossSalary: Number(profileDraft.grossSalary),
-        bankNet: Number(profileDraft.bankNet),
-      },
+        grossSalary,
+        bankNet,
+        years: form.years,
+        allocation,
+      });
+      id = `remote-${data.profile.id}`;
+    } catch (err) {
+      if (/already exists/i.test(err.message)) {
+        setProfileServerError(t.errProfileExists);
+        return;
+      }
+      // Backend unreachable: keep the profile local so the app stays usable.
+    }
+
+    setProfiles((current) => [...current, createProfile(id, name, {
+      form: { ...form, name, grossSalary, bankNet },
       allocation,
       goals: goals.map((goal) => ({ ...goal })),
     })]);
     setActiveProfileId(id);
-    setProfileDraft(null);
-    setIsProfileManagerOpen(false);
+    closeProfileManager();
+    setMessage(t.profileSaved);
   }
 
-  function saveManagedProfile() {
+  async function saveManagedProfile() {
     const name = profileDraft.name.trim();
+    const grossSalary = Number(profileDraft.grossSalary);
+    const bankNet = Number(profileDraft.bankNet);
+    const serverId = remoteIdOf(activeProfile);
+
+    if (serverId) {
+      try {
+        await sendJson(`/calculate/profiles/${serverId}`, 'PATCH', { name, grossSalary, bankNet });
+      } catch (err) {
+        setProfileServerError(toServerError(err));
+        return;
+      }
+    }
+
     updateActiveProfile((profile) => ({
       ...profile,
       name,
-      form: {
-        ...profile.form,
-        name,
-        grossSalary: Number(profileDraft.grossSalary),
-        bankNet: Number(profileDraft.bankNet),
-      },
+      form: { ...profile.form, name, grossSalary, bankNet },
     }));
-    setProfileDraft(null);
-    setIsProfileManagerOpen(false);
+    closeProfileManager();
+    setMessage(t.profileSaved);
   }
 
-  function deleteManagedProfile() {
+  async function deleteManagedProfile() {
     if (profiles.length < 2) {
       return;
+    }
+
+    const serverId = remoteIdOf(activeProfile);
+    if (serverId) {
+      try {
+        await sendJson(`/calculate/profiles/${serverId}`, 'DELETE');
+      } catch (err) {
+        if (!/not found/i.test(err.message)) {
+          setProfileServerError(toServerError(err));
+          return;
+        }
+      }
     }
 
     const nextProfiles = profiles.filter((profile) => profile.id !== activeProfileId);
     setProfiles(nextProfiles);
     setActiveProfileId(nextProfiles[0].id);
-    setIsProfileManagerOpen(false);
+    closeProfileManager();
   }
 
   function exportPdf() {
@@ -911,19 +980,19 @@ export default function App() {
                 <div className="summary-strip" aria-label="Financial summary">
                   <div>
                     <span>{t.monthlyBankNet}</span>
-                    <strong>{formatMoney(convertedResult.bankNet)}</strong>
+                    <strong><AnimatedNumber value={convertedResult.bankNet} format={formatMoney} /></strong>
                   </div>
                   <div>
                     <span>{t.monthlyInvesting}</span>
-                    <strong>{formatMoney(convertedResult.activeInvestments)}</strong>
+                    <strong><AnimatedNumber value={convertedResult.activeInvestments} format={formatMoney} /></strong>
                   </div>
                   <div>
                     <span>{t.annualInvesting}</span>
-                    <strong>{formatMoney(yearlyInvestment)}</strong>
+                    <strong><AnimatedNumber value={yearlyInvestment} format={formatMoney} /></strong>
                   </div>
                   <div>
                     <span>{t.projectedValue}</span>
-                    <strong>{formatMoney(endingProjectionValue)}</strong>
+                    <strong><AnimatedNumber value={endingProjectionValue} format={formatMoney} /></strong>
                   </div>
                 </div>
 
@@ -934,7 +1003,7 @@ export default function App() {
                         <strong>{t.buckets[key]}</strong>
                         <small>{parsePositiveField(allocation[key])}%</small>
                       </div>
-                      <span data-testid={key}>{formatMoney(convertedResult[key])}</span>
+                      <span data-testid={key}><AnimatedNumber value={convertedResult[key]} format={formatMoney} /></span>
                     </article>
                   ))}
                 </div>
@@ -1028,23 +1097,23 @@ export default function App() {
           )}
 
           {activeView === 'goals' && (
-            <section>
+            <section className="view-section">
               <div className="summary-strip portfolio-summary" aria-label="Portfolio summary">
                 <div>
                   <span>{t.totalTarget}</span>
-                  <strong>{formatMoney(portfolioTotals.target)}</strong>
+                  <strong><AnimatedNumber value={portfolioTotals.target} format={formatMoney} /></strong>
                 </div>
                 <div>
                   <span>{t.currentlySaved}</span>
-                  <strong>{formatMoney(portfolioTotals.saved)}</strong>
+                  <strong><AnimatedNumber value={portfolioTotals.saved} format={formatMoney} /></strong>
                 </div>
                 <div>
                   <span>{t.requiredMonthly}</span>
-                  <strong>{formatMoney(portfolioTotals.monthly)}</strong>
+                  <strong><AnimatedNumber value={portfolioTotals.monthly} format={formatMoney} /></strong>
                 </div>
                 <div>
                   <span>{t.goalProgress}</span>
-                  <strong>{portfolioProgress}%</strong>
+                  <strong><AnimatedNumber value={portfolioProgress} format={(value) => `${Math.round(value)}%`} /></strong>
                 </div>
               </div>
 
@@ -1093,6 +1162,13 @@ export default function App() {
                           <button type="button" className="icon-button mini danger-icon" onClick={() => deleteGoal(goal.id)} aria-label={t.deleteGoal(goal.name)}>D</button>
                         </div>
                       </div>
+                      {progress >= 100 && (
+                        <div className="confetti" aria-hidden="true">
+                          {Array.from({ length: 12 }, (_, index) => (
+                            <i key={index} style={{ '--i': index }} />
+                          ))}
+                        </div>
+                      )}
                       <button type="button" className="goal-card-body" onClick={() => setSelectedGoalId(goal.id)}>
                         <strong>{goal.name}</strong>
                         <small>{t.categoryNames[goal.category] || goal.category}</small>
@@ -1125,9 +1201,9 @@ export default function App() {
             profiles={profiles}
             activeProfileId={activeProfileId}
             draft={profileDraft}
-            onDraftChange={setProfileDraft}
-            error={validateProfileDraft(profileDraft)}
-            onClose={() => setIsProfileManagerOpen(false)}
+            onDraftChange={updateProfileDraft}
+            error={validateProfileDraft(profileDraft) || profileServerError}
+            onClose={closeProfileManager}
             onCreate={createManagedProfile}
             onSave={saveManagedProfile}
             onDelete={deleteManagedProfile}

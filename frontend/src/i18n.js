@@ -152,6 +152,7 @@ export const translations = {
 
     errNameRequired: 'Name is required.',
     errProfileNameRequired: 'Profile name is required.',
+    errProfileExists: 'A profile with this name already exists.',
     errGrossPositive: 'Gross salary must be greater than 0.',
     errGrossTooHigh: 'Gross salary looks too high for a monthly salary.',
     errNetPositive: 'Bank net must be greater than 0.',
@@ -318,6 +319,7 @@ export const translations = {
 
     errNameRequired: 'שם הוא שדה חובה.',
     errProfileNameRequired: 'שם הפרופיל הוא שדה חובה.',
+    errProfileExists: 'פרופיל עם השם הזה כבר קיים.',
     errGrossPositive: 'שכר הברוטו חייב להיות גדול מ-0.',
     errGrossTooHigh: 'שכר הברוטו נראה גבוה מדי למשכורת חודשית.',
     errNetPositive: 'הנטו חייב להיות גדול מ-0.',
