@@ -65,6 +65,17 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 html {
@@ -228,6 +239,11 @@ select {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
+input:hover,
+select:hover {
+  border-color: var(--line-strong);
+}
+
 input:focus,
 select:focus {
   outline: none;
@@ -306,28 +322,58 @@ input::placeholder {
 }
 
 .logo-mark {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
   width: 46px;
   height: 46px;
+  padding-bottom: 11px;
   border-radius: 14px;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 10px 26px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Ascending-bars growth mark: ::before, the inner span, and ::after
+   form the three bars, so the markup stays a single nested span. */
+.logo-mark::before,
+.logo-mark::after {
+  content: '';
+}
+
+.logo-mark::before,
+.logo-mark span,
+.logo-mark::after {
+  width: 5px;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.logo-mark::before {
+  height: 9px;
+  opacity: 0.65;
 }
 
 .logo-mark span {
-  width: 18px;
-  height: 18px;
-  border: 3px solid color-mix(in srgb, #ffffff 92%, transparent);
-  border-inline-start-color: transparent;
-  border-radius: 50%;
-  transform: rotate(-45deg);
+  height: 15px;
+  opacity: 0.85;
+}
+
+.logo-mark::after {
+  height: 21px;
 }
 
 .headline h1 {
   font-size: 1.5rem;
   font-weight: 800;
   text-transform: capitalize;
+}
+
+.headline h1::after {
+  content: '.';
+  color: var(--accent);
 }
 
 .headline p,
@@ -993,14 +1039,29 @@ svg polyline[stroke='#fb7185'] {
 }
 
 .home-logo {
-  width: 58px;
-  height: 58px;
+  width: 60px;
+  height: 60px;
+  gap: 4px;
+  padding-bottom: 14px;
   border-radius: 18px;
 }
 
+.home-logo::before,
+.home-logo span,
+.home-logo::after {
+  width: 7px;
+}
+
+.home-logo::before {
+  height: 11px;
+}
+
 .home-logo span {
-  width: 24px;
-  height: 24px;
+  height: 19px;
+}
+
+.home-logo::after {
+  height: 27px;
 }
 
 .home-profile-card {
@@ -1171,6 +1232,13 @@ svg polyline[stroke='#fb7185'] {
   display: flex;
   justify-content: space-between;
   gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.goal-tile dl div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .goal-tile dt {
