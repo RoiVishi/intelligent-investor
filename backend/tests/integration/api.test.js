@@ -172,6 +172,39 @@ describe('API integration', () => {
     expect(pool.__mockClient.release).toHaveBeenCalled();
   });
 
+  test('PATCH /calculate/profiles/:id updates name and salaries', async () => {
+    pool.query.mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [{
+        id: 42,
+        name: 'Roi Updated',
+        gross_salary: '12000.00',
+        bank_net: '8400.00',
+        created_at: '2026-05-18T10:00:00.000Z',
+        updated_at: '2026-06-12T10:00:00.000Z',
+      }],
+    });
+
+    const response = await request(app)
+      .patch('/calculate/profiles/42')
+      .send({ name: 'Roi Updated', grossSalary: 12000, bankNet: 8400 });
+
+    expect(response.status).toBe(200);
+    expect(response.body.name).toBe('Roi Updated');
+    expect(response.body.grossSalary).toBe(12000);
+    expect(response.body.bankNet).toBe(8400);
+    expect(pool.query.mock.calls[0][1]).toEqual(['Roi Updated', 12000, 8400, 42]);
+  });
+
+  test('PATCH /calculate/profiles/:id rejects bank net above gross salary', async () => {
+    const response = await request(app)
+      .patch('/calculate/profiles/42')
+      .send({ name: 'Roi', grossSalary: 10000, bankNet: 12000 });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('bankNet cannot be higher than grossSalary');
+  });
+
   test('GET /calculate/profiles/:id loads a profile with its latest plan', async () => {
     pool.query.mockResolvedValueOnce({
       rowCount: 1,

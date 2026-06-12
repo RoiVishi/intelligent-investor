@@ -851,6 +851,14 @@ svg {
   height: 100%;
   border-radius: inherit;
   background: var(--blue);
+  transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: progress-grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes progress-grow {
+  from {
+    width: 0;
+  }
 }
 
 .goal-tile dl,
@@ -1393,6 +1401,91 @@ svg stop {
 /* SVG charts stay left-to-right even in RTL */
 .chart-frame svg {
   direction: ltr;
+}
+
+/* === Micro-animations === */
+.layout,
+.view-section,
+.home-view {
+  animation: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.notice.success {
+  animation: pop-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.goal-tile {
+  position: relative;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -12px;
+  left: calc(4% + var(--i) * 8%);
+  width: 6px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  animation: confetti-fall 1.8s ease-in calc(var(--i) * 0.12s) 3;
+}
+
+.confetti i:nth-child(3n) {
+  background: var(--green);
+  height: 8px;
+}
+
+.confetti i:nth-child(3n + 1) {
+  background: var(--gold);
+}
+
+.confetti i:nth-child(4n) {
+  background: var(--rose);
+  width: 5px;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0.85;
+    transform: translateY(280px) rotate(540deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layout,
+  .view-section,
+  .home-view,
+  .notice.success,
+  .progress-track span,
+  .confetti i {
+    transition: none;
+    animation: none;
+  }
 }
 
 /* === Redesign refinements === */
