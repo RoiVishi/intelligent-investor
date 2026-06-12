@@ -51,6 +51,57 @@ export function calculateClientSide(grossSalary, bankNet, years = 15, allocation
   };
 }
 
+// Deterministic PRNG so the simulation is stable across re-renders and testable.
+function mulberry32(seed) {
+  let state = seed;
+  return () => {
+    state |= 0;
+    state = (state + 0x6D2B79F5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Monte Carlo projection: simulates yearly market returns drawn from a normal
+// distribution (Box-Muller) around the mean return, using the same
+// contribute-then-compound model as projectRecurringInvestment.
+export function simulateWealthProjection(monthlyInvestment, years, options = {}) {
+  const {
+    runs = 1000,
+    meanReturn = 0.07,
+    volatility = 0.15,
+    seed = 1337,
+  } = options;
+  const annualContribution = (Number(monthlyInvestment) || 0) * 12;
+  const yearCount = clampYears(years);
+  const random = mulberry32(seed);
+  const valuesPerYear = Array.from({ length: yearCount }, () => []);
+
+  for (let run = 0; run < runs; run += 1) {
+    let value = 0;
+    for (let yearIndex = 0; yearIndex < yearCount; yearIndex += 1) {
+      const u1 = Math.max(random(), 1e-12);
+      const u2 = random();
+      const gaussian = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      const annualReturn = meanReturn + volatility * gaussian;
+      value = Math.max((value + annualContribution) * (1 + annualReturn), 0);
+      valuesPerYear[yearIndex].push(value);
+    }
+  }
+
+  return valuesPerYear.map((values, yearIndex) => {
+    const sorted = [...values].sort((left, right) => left - right);
+    const percentile = (p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+    return {
+      year: yearIndex + 1,
+      p10: Number(percentile(0.10).toFixed(2)),
+      p50: Number(percentile(0.50).toFixed(2)),
+      p90: Number(percentile(0.90).toFixed(2)),
+    };
+  });
+}
+
 export function formatCurrency(value, currency = 'ILS') {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',

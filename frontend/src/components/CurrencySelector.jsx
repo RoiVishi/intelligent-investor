@@ -10,10 +10,10 @@ export function convertCurrency(amount, fromCurrency, toCurrency) {
   return ((Number(amount) || 0) * from.rateToIls) / to.rateToIls;
 }
 
-export default function CurrencySelector({ value, onChange }) {
+export default function CurrencySelector({ value, onChange, label = 'Currency' }) {
   return (
     <label className="toolbar-field" htmlFor="currency">
-      <span>Currency</span>
+      <span>{label}</span>
       <select id="currency" value={value} onChange={(event) => onChange(event.target.value)}>
         {Object.entries(currencies).map(([code, currency]) => (
           <option key={code} value={code}>
