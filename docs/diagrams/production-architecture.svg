@@ -1,89 +1,103 @@
-<svg width="1400" height="700" viewBox="0 0 1400 700" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', Arial, sans-serif">
   <defs>
-    <marker id="aSky" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#0284c7"/></marker>
-    <marker id="aAmber" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#d97706"/></marker>
-    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#e2e8f0"/></pattern>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#020a23"/>
+      <stop offset="50%" stop-color="#04153e"/>
+      <stop offset="100%" stop-color="#010814"/>
+    </linearGradient>
+    <linearGradient id="lineGlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00d9ff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#00d9ff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#00d9ff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="blueCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f2d7a"/>
+      <stop offset="100%" stop-color="#071633"/>
+    </linearGradient>
+    <linearGradient id="pinkCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#65153e"/>
+      <stop offset="100%" stop-color="#251029"/>
+    </linearGradient>
+    <linearGradient id="tealCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e4e5b"/>
+      <stop offset="100%" stop-color="#082933"/>
+    </linearGradient>
+    <filter id="neon" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+      <path d="M0,0 L12,4 L0,8 z" fill="#39e7ff"/>
+    </marker>
   </defs>
 
-  <rect width="1400" height="700" fill="#ffffff"/>
-  <rect width="1400" height="700" fill="url(#dots)"/>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g opacity="0.35" stroke="url(#lineGlow)" stroke-width="2">
+    <line x1="0" y1="65" x2="1600" y2="65"/>
+    <line x1="0" y1="170" x2="1600" y2="170"/>
+    <line x1="0" y1="260" x2="1600" y2="260"/>
+    <line x1="0" y1="835" x2="1600" y2="835"/>
+  </g>
 
-  <!-- Title -->
-  <rect x="60" y="28" width="6" height="48" rx="3" fill="#0284c7"/>
-  <text x="80" y="52" font-size="26" font-weight="700" fill="#1e293b">Production — Render Cloud</text>
-  <text x="80" y="80" font-size="15" fill="#64748b">Provisioned from Blueprint render.yaml — Static Site, Dockerized Web Service and a managed PostgreSQL database</text>
+  <text x="800" y="86" font-size="60" font-weight="700" fill="#bdeaff" text-anchor="middle" filter="url(#neon)">Intelligent Investor – Render Production Cloud</text>
+  <text x="800" y="130" font-size="24" fill="#8ad9ff" text-anchor="middle">Blueprint: render.yaml · Static Site + Docker Web Service + Managed PostgreSQL</text>
 
-  <!-- User browser -->
-  <rect x="60" y="250" width="180" height="110" rx="10" fill="#f8fafc" stroke="#334155" stroke-width="1.5"/>
-  <text x="150" y="282" font-size="10.5" letter-spacing="2" fill="#64748b" text-anchor="middle">USER</text>
-  <text x="150" y="310" font-size="17" font-weight="700" fill="#1e293b" text-anchor="middle">Web Browser</text>
-  <text x="150" y="334" font-size="11.5" fill="#64748b" text-anchor="middle">onrender.com</text>
+  <rect x="120" y="260" width="1360" height="540" rx="34" fill="none" stroke="#2fdcff" stroke-width="3" opacity="0.9" filter="url(#neon)"/>
+  <text x="800" y="305" font-size="26" fill="#aaf0ff" text-anchor="middle" font-weight="600">Render Cloud Boundary</text>
 
-  <!-- Render boundary -->
-  <rect x="300" y="160" width="1040" height="400" rx="14" fill="#f8fafc" fill-opacity="0.65" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="8 6"/>
-  <rect x="324" y="146" width="330" height="28" rx="14" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
-  <text x="489" y="165" font-size="13" fill="#334155" text-anchor="middle">Render Cloud — Blueprint: render.yaml</text>
+  <rect x="60" y="500" width="130" height="82" rx="10" fill="#0b1733" stroke="#39e7ff" stroke-width="3" filter="url(#neon)"/>
+  <text x="125" y="551" text-anchor="middle" font-size="42" fill="#8de9ff">👤</text>
+  <text x="125" y="610" text-anchor="middle" font-size="42" fill="#8de9ff" filter="url(#soft)">⮕</text>
+  <rect x="36" y="620" width="180" height="64" rx="10" fill="#0d1d41" stroke="#39e7ff" stroke-width="2"/>
+  <text x="126" y="662" text-anchor="middle" font-size="42" fill="#d7f7ff" font-weight="600">App Access</text>
 
-  <!-- Static site -->
-  <rect x="340" y="230" width="260" height="200" rx="10" fill="#ffffff" stroke="#0284c7" stroke-width="1.8"/>
-  <text x="360" y="258" font-size="10.5" letter-spacing="2" fill="#0284c7">STATIC SITE</text>
-  <text x="360" y="282" font-size="15.5" font-weight="700" fill="#1e293b">intelligent-investor-web</text>
-  <line x1="360" y1="296" x2="580" y2="296" stroke="#e2e8f0" stroke-width="1.5"/>
-  <text x="360" y="318" font-size="12" fill="#334155">npm install &amp;&amp; npm run build</text>
-  <text x="360" y="338" font-size="12" fill="#475569">config.js generated at build time</text>
-  <text x="360" y="356" font-size="12" fill="#475569">injects window.API_BASE_URL</text>
-  <rect x="360" y="384" width="150" height="26" rx="13" fill="#fff7ed" stroke="#d97706" stroke-width="1.2"/>
-  <text x="435" y="401" font-size="12" fill="#92400e" text-anchor="middle">publishes dist/</text>
+  <g>
+    <rect x="220" y="360" width="380" height="360" rx="22" fill="url(#blueCard)" stroke="#3bb3ff" stroke-width="4" filter="url(#neon)"/>
+    <rect x="220" y="360" width="380" height="95" rx="22" fill="none" stroke="#3bb3ff" stroke-width="4"/>
+    <text x="410" y="410" text-anchor="middle" fill="#b8e8ff" font-size="46" font-weight="700">Presentation Layer</text>
+    <text x="410" y="447" text-anchor="middle" fill="#8dd5ff" font-size="35">Render Static Site</text>
+    <text x="275" y="520" fill="#bce9ff" font-size="54">⚛</text>
+    <text x="330" y="520" fill="#d8f5ff" font-size="46" font-weight="700">React + Vite</text>
+    <text x="330" y="565" fill="#9fdcff" font-size="36">intelligent-investor-web.onrender.com</text>
+    <text x="255" y="620" fill="#8eeaff" font-size="30">▪ Interactive UI &amp; Charts</text>
+    <text x="255" y="665" fill="#8eeaff" font-size="30">▪ Injects API URL via dist/config.js</text>
+  </g>
 
-  <!-- API web service -->
-  <rect x="680" y="205" width="290" height="250" rx="10" fill="#ffffff" stroke="#0284c7" stroke-width="1.8"/>
-  <text x="700" y="233" font-size="10.5" letter-spacing="1.5" fill="#0284c7">WEB SERVICE · DOCKER RUNTIME</text>
-  <text x="700" y="257" font-size="15.5" font-weight="700" fill="#1e293b">intelligent-investor-api</text>
-  <line x1="700" y1="271" x2="950" y2="271" stroke="#e2e8f0" stroke-width="1.5"/>
-  <text x="700" y="293" font-size="12.5" fill="#334155">Built from backend/Dockerfile</text>
-  <text x="700" y="313" font-size="12.5" fill="#334155">Node.js + Express REST API</text>
-  <text x="700" y="333" font-size="12.5" fill="#475569">healthCheckPath: /health</text>
-  <text x="700" y="353" font-size="12.5" fill="#475569">DB env vars injected fromDatabase</text>
-  <text x="700" y="371" font-size="11.5" fill="#64748b">(host · port · name · user · password)</text>
-  <rect x="700" y="396" width="120" height="26" rx="13" fill="#fff7ed" stroke="#d97706" stroke-width="1.2"/>
-  <text x="760" y="413" font-size="12" fill="#92400e" text-anchor="middle">PORT 5000</text>
+  <g>
+    <rect x="650" y="360" width="430" height="360" rx="22" fill="url(#pinkCard)" stroke="#ff5f8a" stroke-width="4" filter="url(#neon)"/>
+    <rect x="650" y="360" width="430" height="95" rx="22" fill="none" stroke="#ff5f8a" stroke-width="4"/>
+    <text x="865" y="410" text-anchor="middle" fill="#ffd2e0" font-size="46" font-weight="700">Application Layer</text>
+    <text x="865" y="447" text-anchor="middle" fill="#ff9bb7" font-size="35">Render Web Service (Docker)</text>
+    <text x="710" y="520" fill="#ffc7d8" font-size="54">🛠</text>
+    <text x="765" y="520" fill="#ffe5ee" font-size="46" font-weight="700">Node.js / Express API</text>
+    <text x="765" y="565" fill="#ffc2d7" font-size="35">intelligent-investor-api.onrender.com</text>
+    <text x="675" y="620" fill="#ffb7ce" font-size="30">▪ healthCheckPath: /health</text>
+    <text x="675" y="665" fill="#ffb7ce" font-size="30">▪ Backend reads DB env vars from managed DB</text>
+  </g>
 
-  <!-- Managed database -->
-  <rect x="1050" y="230" width="260" height="200" rx="10" fill="#ffffff" stroke="#0284c7" stroke-width="1.8"/>
-  <text x="1070" y="258" font-size="10.5" letter-spacing="2" fill="#0284c7">MANAGED DATABASE</text>
-  <text x="1070" y="282" font-size="15.5" font-weight="700" fill="#1e293b">intelligent-investor-db</text>
-  <line x1="1070" y1="296" x2="1290" y2="296" stroke="#e2e8f0" stroke-width="1.5"/>
-  <text x="1070" y="318" font-size="12.5" fill="#334155">Render managed PostgreSQL</text>
-  <text x="1070" y="338" font-size="12.5" fill="#475569">database: investor_db</text>
-  <text x="1070" y="356" font-size="12.5" fill="#475569">user: investor_user</text>
-  <rect x="1070" y="384" width="110" height="26" rx="13" fill="#fff7ed" stroke="#d97706" stroke-width="1.2"/>
-  <text x="1125" y="401" font-size="12" fill="#92400e" text-anchor="middle">plan: free</text>
+  <g>
+    <rect x="1130" y="360" width="380" height="360" rx="22" fill="url(#tealCard)" stroke="#40f4c5" stroke-width="4" filter="url(#neon)"/>
+    <rect x="1130" y="360" width="380" height="95" rx="22" fill="none" stroke="#40f4c5" stroke-width="4"/>
+    <text x="1320" y="410" text-anchor="middle" fill="#cbfff2" font-size="44" font-weight="700">Data Persistence Layer</text>
+    <text x="1320" y="447" text-anchor="middle" fill="#99fbe0" font-size="35">Managed PostgreSQL</text>
+    <text x="1180" y="520" fill="#dbfff4" font-size="54">🐘</text>
+    <text x="1238" y="520" fill="#eafff9" font-size="46" font-weight="700">PostgreSQL 16</text>
+    <text x="1238" y="565" fill="#b8ffe9" font-size="35">intelligent-investor-db</text>
+    <text x="1160" y="620" fill="#8effda" font-size="30">▪ investor_db · investor_user · free plan</text>
+    <text x="1160" y="665" fill="#8effda" font-size="30">▪ Persistent financial profile storage</text>
+  </g>
 
-  <!-- Arrows -->
-  <line x1="240" y1="305" x2="332" y2="305" stroke="#0284c7" stroke-width="2" marker-end="url(#aSky)"/>
-  <rect x="262" y="280" width="52" height="16" fill="#ffffff"/>
-  <text x="288" y="292" font-size="11.5" fill="#0c4a6e" text-anchor="middle">HTTPS</text>
+  <line x1="600" y1="540" x2="640" y2="540" stroke="#39e7ff" stroke-width="8" marker-end="url(#arrowBlue)" filter="url(#neon)"/>
+  <text x="620" y="512" text-anchor="middle" fill="#79f0ff" font-size="26" font-weight="700">REST API Requests</text>
 
-  <line x1="600" y1="305" x2="672" y2="305" stroke="#0284c7" stroke-width="2" marker-end="url(#aSky)"/>
-  <text x="638" y="292" font-size="11.5" fill="#0c4a6e" text-anchor="middle">HTTPS</text>
-  <text x="638" y="326" font-size="11.5" fill="#0c4a6e" text-anchor="middle">REST</text>
+  <line x1="1080" y1="540" x2="1120" y2="540" stroke="#39e7ff" stroke-width="8" marker-end="url(#arrowBlue)" filter="url(#neon)"/>
+  <text x="1100" y="512" text-anchor="middle" fill="#79f0ff" font-size="26" font-weight="700">PostgreSQL Queries</text>
 
-  <line x1="970" y1="305" x2="1042" y2="305" stroke="#0284c7" stroke-width="2" marker-end="url(#aSky)"/>
-  <text x="1006" y="292" font-size="11.5" fill="#0c4a6e" text-anchor="middle">secure</text>
-  <text x="1006" y="326" font-size="11.5" fill="#0c4a6e" text-anchor="middle">connection</text>
-
-  <!-- Docker Hub connector + note -->
-  <line x1="825" y1="455" x2="825" y2="581" stroke="#d97706" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#aAmber)"/>
-  <text x="838" y="540" font-size="11" fill="#b45309">same backend/Dockerfile</text>
-
-  <rect x="640" y="585" width="460" height="80" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="1.2"/>
-  <text x="664" y="610" font-size="10.5" letter-spacing="2" fill="#b45309">DOCKER HUB · CI PUBLISH</text>
-  <text x="664" y="632" font-size="12.5" fill="#334155">On every merge to main, CI pushes the backend image:</text>
-  <text x="664" y="651" font-size="12.5" font-weight="700" fill="#92400e">roivishi/ii-backend:latest  ·  :&lt;commit-SHA&gt;</text>
-
-  <!-- Free tier note -->
-  <rect x="60" y="585" width="520" height="80" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
-  <text x="84" y="610" font-size="10.5" letter-spacing="2" fill="#64748b">FREE TIER</text>
-  <text x="84" y="632" font-size="12.5" fill="#334155">Services spin down after a period of inactivity —</text>
-  <text x="84" y="651" font-size="12.5" fill="#334155">the first request after idle takes ~50 s (cold start).</text>
+  <text x="800" y="790" text-anchor="middle" fill="#8fdfff" font-size="23">Public traffic reaches the static frontend, which calls the Dockerized backend API over HTTPS; the API persists data in Render PostgreSQL.</text>
 </svg>
